@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Test files
+sim_*.js
+test_*.py
+
+# Build/temp files
+*.log
+*.tmp
+*.temp
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Build outputs
+dist/
+build/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Temp scripts
+*.py

@@ -1,0 +1,3466 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PLAKORO 在線對戰 - PVE 模式</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --card: #16213e;
+    --accent: #e94560;
+    --gold: #f5c518;
+    --text: #eaeaea;
+    --muted: #a0a0a0;
+    --grass: #7cb342;
+    --fire: #ff5722;
+    --water: #2196f3;
+    --electric: #ffd700;
+    --psychic: #ba68c8;
+    --fighting: #8d6e63;
+    --dark: #5d4037;
+    --steel: #90a4ae;
+    --flying: #4dd0e1;
+  }
+  
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  
+  .screen { display: none; padding: 20px; max-width: 1000px; margin: 0 auto; }
+  .screen.active { display: block; }
+  
+  h1 {
+    text-align: center;
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    color: var(--gold);
+    text-shadow: 0 0 20px rgba(245, 197, 24, 0.5);
+  }
+  
+  .subtitle {
+    text-align: center;
+    color: var(--muted);
+    margin-bottom: 30px;
+  }
+  
+  .btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    font-size: 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 600;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn-secondary { background: #333; }
+  .btn-secondary:hover { background: #444; transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+  .btn-gold { background: var(--gold); color: #1a1a2e; }
+  .btn-gold:hover { box-shadow: 0 4px 15px rgba(245, 197, 24, 0.4); transform: translateY(-2px); }
+  
+  .pokemon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin: 20px 0;
+  }
+  
+  .pokemon-card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+  }
+  .pokemon-card:hover { border-color: var(--gold); transform: translateY(-3px); }
+  .pokemon-card.selected { border-color: var(--accent); box-shadow: 0 0 15px rgba(233, 69, 96, 0.3); }
+  
+  .pokemon-card .emoji { font-size: 2.2rem; margin-bottom: 6px; }
+  .pokemon-card .pokemon-img {
+    width: 100%;
+    height: 90px;
+    object-fit: contain;
+    margin-bottom: 6px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.05);
+    display: block;
+  }
+  .pokemon-card .name { font-size: 0.9rem; font-weight: 600; }
+  .pokemon-card .type { 
+    display: inline-block; 
+    padding: 2px 6px; 
+    border-radius: 10px; 
+    font-size: 0.7rem;
+    margin-top: 3px;
+    font-weight: 600;
+  }
+  
+  .type-grass { background: var(--grass); color: #1a1a2e; }
+  .type-fire { background: var(--fire); color: white; }
+  .type-water { background: var(--water); color: white; }
+  .type-electric { background: var(--electric); color: #1a1a2e; }
+  .type-psychic { background: var(--psychic); color: white; }
+  .type-fighting { background: var(--fighting); color: white; }
+  .type-dark { background: var(--dark); color: white; }
+  .type-steel { background: var(--steel); color: #1a1a2e; }
+  .type-flying { background: var(--flying); color: #1a1a2e; }
+  .type-void { background: #666; color: white; }
+  
+  .battle-field {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 15px;
+    align-items: center;
+    margin: 20px 0;
+    min-height: 380px;
+  }
+  
+  .combatant {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 18px;
+    text-align: center;
+    position: relative;
+    transition: all 0.3s;
+  }
+  
+  .combatant.player { border: 2px solid var(--gold); }
+  .combatant.enemy { border: 2px solid var(--accent); }
+  
+  .combatant.hit { animation: hit 0.3s ease-out; }
+  @keyframes hit {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); filter: brightness(2); }
+    75% { transform: translateX(10px); filter: brightness(1.5); }
+  }
+  
+  .hp-bar-container {
+    width: 100%;
+    height: 22px;
+    background: #2a2a3e;
+    border-radius: 11px;
+    overflow: hidden;
+    margin: 10px 0;
+    position: relative;
+  }
+  
+  .hp-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #4caf50, #8bc34a);
+    transition: width 0.4s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  }
+  
+  .hp-bar.low { background: linear-gradient(90deg, #f44336, #ff9800); }
+  
+  .hp-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.7rem;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  }
+  
+  .dice-area {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+    margin: 8px 0;
+    min-height: 45px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  
+  .energy-dice {
+    width: 38px;
+    height: 38px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    animation: diceAppear 0.3s ease-out;
+  }
+  
+  @keyframes diceAppear {
+    from { transform: scale(0); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  
+  .energy-dice.grass { background: linear-gradient(135deg, #7cb342, #558b2f); }
+  .energy-dice.fire { background: linear-gradient(135deg, #ff5722, #c62828); }
+  .energy-dice.water { background: linear-gradient(135deg, #2196f3, #1565c0); }
+  .energy-dice.electric { background: linear-gradient(135deg, #ffd700, #f9a825); color: #1a1a2e; }
+  .energy-dice.psychic { background: linear-gradient(135deg, #ba68c8, #7b1fa2); }
+  .energy-dice.fighting { background: linear-gradient(135deg, #8d6e63, #5d4037); }
+  .energy-dice.dark { background: linear-gradient(135deg, #5d4037, #3e2723); }
+  .energy-dice.steel { background: linear-gradient(135deg, #90a4ae, #607d8b); color: #1a1a2e; }
+  .energy-dice.flying { background: linear-gradient(135deg, #4dd0e1, #00838f); }
+  .energy-dice.colorless { background: linear-gradient(135deg, #9e9e9e, #616161); color: #fff; }
+  .energy-dice.void { background: #666; }
+
+  /* 角色骰（Character Die） */
+  .char-dice {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    animation: diceAppear 0.3s ease-out;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    border: 2px solid #ffd700;
+    position: relative;
+  }
+  .char-dice::after {
+    position: absolute;
+    bottom: -22px;
+    font-size: 0.65rem;
+    color: var(--muted);
+    font-weight: normal;
+  }
+  .char-dice.站立 { background: linear-gradient(135deg, #ff6b6b, #ee5a5a); }
+  .char-dice.站立::after { content: '站立 ⬆️'; }
+  .char-dice.倒立 { background: linear-gradient(135deg, #ffa502, #e67e00); }
+  .char-dice.倒立::after { content: '倒立 ⬇️'; }
+  .char-dice.仰躺 { background: linear-gradient(135deg, #7bed9f, #5fa88a); }
+  .char-dice.仰躺::after { content: '仰躺 ↔️'; }
+  .char-dice.趺臥 { background: linear-gradient(135deg, #70a1ff, #4675e0); }
+  .char-dice.趺臥::after { content: '趺臥 ↩️'; }
+  .char-dice.橫躺（左） { background: linear-gradient(135deg, #badc58, #6ab04c); }
+  .char-dice.橫躺（左）::after { content: '橫躺↪️'; }
+  .char-dice.橫躺（右） { background: linear-gradient(135deg, #ff9ff3, #e667b0); }
+  .char-dice.橫躺（右）::after { content: '橫躺↪️'; }
+  
+  /* 骰子組（包含能量骰 + 角色骰） */
+  .dice-tray {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+    margin: 12px 0;
+    padding: 12px;
+    background: rgba(0,0,0,0.35);
+    border-radius: 14px;
+    flex-wrap: wrap;
+  }
+  .dice-tray.enemy-tray {
+    border: 1px solid var(--accent);
+  }
+  .dice-group {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .dice-group-label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-right: 6px;
+    white-space: nowrap;
+  }
+  
+  /* 6 面能量骰預覽 */
+  .die-faces-config {
+    display: flex;
+    gap: 3px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+  .die-face-cell {
+    width: 36px;
+    height: 40px;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 2px solid transparent;
+    position: relative;
+    padding: 3px;
+    gap: 1px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .die-face-cell.single { border-color: transparent; }
+  .die-face-cell.duo { 
+    border-color: #ffd700; 
+    background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,215,0,0.05));
+  }
+  .die-face-cell.duo::before {
+    content: '💞';
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    font-size: 0.55rem;
+    opacity: 0.8;
+  }
+  .die-face-cell .face-type { font-size: 1rem; line-height: 1.2; }
+  .die-face-cell .face-subtype { 
+    font-size: 0.55rem; 
+    opacity: 0.9; 
+    font-weight: 400;
+    text-align: center;
+  }
+  .die-face-cell:hover { transform: scale(1.08); }
+  .die-face-cell.active-die { border-color: var(--gold); box-shadow: 0 0 8px rgba(245,197,24,0.6); }
+  .die-face-cell.selected-face { border-color: #fff; box-shadow: 0 0 10px rgba(255,255,255,0.5); }
+  .die-face-cell .face-type {
+    font-size: 0.85rem;
+    line-height: 1;
+  }
+  .die-face-cell .face-subtype {
+    font-size: 0.55rem;
+    opacity: 0.8;
+  }
+  
+  /* 骰子標籤 */
+  .die-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 3px;
+    font-weight: 600;
+  }
+  
+  /* 多屬性面格內部顯示 */
+  .multi-face-indicator {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    font-size: 0.45rem;
+    background: rgba(0,0,0,0.6);
+    border-radius: 3px;
+    padding: 0 2px;
+    color: var(--gold);
+  }
+  
+  
+  .skills-panel {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 12px;
+    margin-top: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  
+  .skill-card {
+    background: #1f2937;
+    border: 2px solid #374151;
+    border-radius: 8px;
+    padding: 10px;
+    margin: 6px 0;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .skill-card:hover:not(.disabled) { border-color: var(--gold); transform: translateX(3px); }
+  .skill-card.disabled { opacity: 0.4; cursor: not-allowed; }
+  .skill-card.selected { border-color: var(--accent); background: #2d1b1b; }
+  .skill-card .skill-check { 
+    width: 20px; 
+    height: 20px; 
+    border-radius: 50%; 
+    border: 2px solid #555; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 0.7rem;
+    flex-shrink: 0;
+  }
+  .skill-card.selected .skill-check { border-color: var(--gold); background: var(--gold); color: #1a1a2e; }
+  
+  .skill-info { flex: 1; min-width: 0; }
+  .skill-name { font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; gap: 6px; }
+  .skill-type {
+    font-size: 0.6rem;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: #374151;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .skill-cost { 
+    display: flex; 
+    gap: 3px; 
+    margin-top: 3px;
+    flex-wrap: wrap;
+  }
+  .skill-cost .energy-sq {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.55rem;
+    color: white;
+    font-weight: bold;
+  }
+  
+  .skill-damage {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 30px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  
+  .skill-effect {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 2px;
+    font-style: italic;
+  }
+  
+  .controls {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  
+  .message-box {
+    background: #1f2937;
+    border-radius: 8px;
+    padding: 12px;
+    margin: 12px 0;
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    border-left: 3px solid var(--gold);
+  }
+  
+  .message-box.success { border-left-color: #4caf50; }
+  .message-box.fail { border-left-color: #f44336; }
+  .message-box.info { border-left-color: var(--gold); }
+  
+  .result-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .result-box {
+    background: var(--card);
+    padding: 30px;
+    border-radius: 16px;
+    text-align: center;
+    max-width: 380px;
+    animation: scaleIn 0.3s ease-out;
+  }
+  
+  @keyframes scaleIn {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  
+  .result-box h2 { font-size: 1.8rem; margin-bottom: 12px; }
+  
+  .energy-config {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin: 10px 0;
+  }
+  
+  .energy-slot {
+    width: 50px;
+    height: 50px;
+    background: #2a2a3e;
+    border: 2px dashed #555;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1.3rem;
+  }
+  .energy-slot:hover { border-color: var(--gold); transform: scale(1.05); }
+  .energy-slot.filled { border-style: solid; border-color: var(--gold); }
+  
+  .energy-palette {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin: 10px 0;
+    flex-wrap: wrap;
+  }
+  
+  .energy-option {
+    width: 38px;
+    height: 38px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: bold;
+  }
+  .energy-option:hover { transform: scale(1.15); }
+  
+  .energy-die {
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    border: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .energy-die:hover { transform: scale(1.08); }
+  .energy-die.selected { border-color: var(--gold); box-shadow: 0 0 12px var(--gold); }
+
+  .energy-die-wrap {
+    display: inline-block;
+    border: 2px solid #3a3a52;
+    border-radius: 12px;
+    padding: 8px 10px;
+    background: rgba(0,0,0,0.25);
+    transition: all 0.15s;
+  }
+  .energy-die-wrap.selected-die { border-color: var(--gold); box-shadow: 0 0 14px rgba(245,197,24,0.5); }
+  .die-label { font-size: 0.72rem; color: var(--muted); margin-bottom: 6px; text-align: center; }
+  .die-faces { display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; max-width: 210px; }
+  .die-face-cell {
+    width: 34px; height: 34px;
+    border-radius: 7px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+    border: 2px solid #555;
+    transition: all 0.15s;
+    color: #fff;
+  }
+  .die-face-cell.single-face { font-size: 1.3rem; }
+  .die-face-cell.duo-face { font-size: 0.85rem; border-style: dashed; }
+  .die-face-cell:hover { transform: scale(1.12); border-color: #fff; }
+  .die-face-cell.selected-face { border-color: var(--gold); box-shadow: 0 0 10px var(--gold); outline: 2px solid var(--gold); }
+  .palette-chip.chosen { outline: 3px solid #fff; box-shadow: 0 0 10px #fff; }
+
+  .char-face {
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: #2a2a3e;
+    border: 2px solid #555;
+    cursor: pointer;
+    font-size: 0.78rem;
+    transition: all 0.15s;
+  }
+  .char-face:hover { border-color: var(--gold); }
+  .char-face.selected { border-color: var(--gold); box-shadow: 0 0 10px var(--gold); background: rgba(255,215,0,0.15); }
+
+  .palette-chip {
+    min-width: 38px;
+    height: 38px;
+    padding: 0 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: bold;
+    border: 2px solid transparent;
+  }
+  .palette-chip:hover { transform: scale(1.12); border-color: #fff; }
+  
+  .vs-text {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-shadow: 0 0 15px rgba(233, 69, 96, 0.5);
+  }
+  
+  .turn-indicator {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  
+  .stats-row {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin: 10px 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  
+  .stats-row span { }
+  
+  .test-controls {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 15px;
+    margin: 15px 0;
+  }
+  
+  .test-controls h3 {
+    color: var(--gold);
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+  }
+  
+  .test-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  
+  .test-item {
+    background: #1f2937;
+    border-radius: 8px;
+    padding: 10px;
+  }
+  
+  .test-item label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+  
+  .test-item select, .test-item input {
+    width: 100%;
+    padding: 8px;
+    background: #2a2a3e;
+    border: 1px solid #444;
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 0.9rem;
+  }
+  
+  .test-result {
+    background: var(--card);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 10px;
+  }
+  
+  .test-result h4 {
+    color: var(--gold);
+    font-size: 1rem;
+    margin-bottom: 8px;
+  }
+  
+  .test-result pre {
+    background: #1a1a2e;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    overflow-x: auto;
+    white-space: pre-wrap;
+  }
+  
+  .divider {
+    width: 100%;
+    height: 1px;
+    background: #374151;
+    margin: 8px 0;
+  }
+  
+  @media (max-width: 768px) {
+    .battle-field { grid-template-columns: 1fr; }
+    .vs-text { display: none; }
+    h1 { font-size: 1.6rem; }
+    .test-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- 選擇角色畫面 -->
+  <div id="screen-select" class="screen active">
+    <h1>🎲 PLAKORO 在線對戰</h1>
+    <p class="subtitle">選擇你的寶可夢開始 PVE 冒險！（12 隻角色，所有招式來自官方數據）</p>
+    
+    <div class="pokemon-grid" id="pokemon-grid"></div>
+    
+    <div style="text-align: center; margin-top: 15px;">
+      <button class="btn" id="btn-start-battle" disabled>請先選擇寶可夢<br><small>點擊上方寶可夢卡片</small></button>
+    </div>
+    
+    <div style="text-align: center; margin-top: 25px; color: var(--muted); font-size: 0.8rem;">
+      <p>📖 遊戲規則：每回合選招式 → 擲 3 個能量骰 → 達成本項成本即發動 → 角色骰方向匹配觸發效果 → 弱點 +20 → 先歸零者輸</p>
+      <p style="margin-top: 8px;">⚙️ 按「擲骰測試」按鈕可單獨測試骰子機制！</p>
+    </div>
+  </div>
+  
+  <!-- 能量骰配置畫面 -->
+  <div id="screen-energy" class="screen">
+    <h1>⚡ 配置能量骰子</h1>
+    <p class="subtitle" id="energy-subtitle">為你的寶可夢調整能量骰子組合（3 個，可自定義任何屬性）</p>
+    
+    <div style="text-align: center; margin: 10px 0;">
+      <div style="font-size: 2.5rem; margin-bottom: 5px;" id="selected-pokemon-display"></div>
+      <div style="font-weight: 600;" id="selected-pokemon-name"></div>
+      <div style="color: var(--muted); font-size: 0.85rem;">
+        屬性：<span id="selected-pokemon-type" style="display: inline-block; padding: 2px 6px; border-radius: 6px; margin-left: 4px;"></span>
+        | 弱點：<span id="selected-pokemon-weakness"></span>
+        | HP: <span id="selected-pokemon-hp">120</span>
+      </div>
+    </div>
+    
+    <div style="text-align: center; margin: 8px 0 15px;">
+      <div style="color: var(--muted); margin-bottom: 5px; font-size: 0.85rem;">你的能量骰子（3 個）：</div>
+      <div id="energy-dice-6face" class="energy-config"></div>
+    </div>
+    
+    <div style="text-align: center; margin: 8px 0;">
+      <button class="btn btn-secondary" id="btn-reset-energy" style="padding: 6px 12px; font-size: 0.85rem;">重置為預設</button>
+      <button class="btn btn-secondary" id="btn-random-energy" style="padding: 6px 12px; font-size: 0.85rem;">隨機生成</button>
+    </div>
+    
+    <div style="text-align: center; margin: 8px 0 15px;">
+      <div style="color: var(--muted); margin-bottom: 5px; font-size: 0.85rem;">點擊要替換的骰子，然後選擇新屬性：</div>
+      <div class="energy-palette" id="energy-palette"></div>
+    </div>
+    
+    <div style="text-align: center; margin-top: 20px;">
+          <div style="text-align: center; margin: 18px 0 10px; padding: 12px; background: rgba(255,215,0,0.1); border-radius: 10px; border: 1px solid #ffd700;">
+            <div style="color: var(--gold); font-size: 0.95rem; margin-bottom: 4px;">
+              🎲 角色骰子（Character Die）— 第 4 個骰
+            </div>
+            <div style="font-size: 0.75rem; color: var(--muted);">
+              6 個面，每面一種姿勢：站立 ⬆️ / 倒立 ⬇️ / 仰躺 ↔️ / 趺臥 ↩️ / 橫躺↪️（左／右）
+            </div>
+            <div id="char-dice-6face" style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 10px 0;"></div>
+          </div>
+          <div style="text-align: center; margin: 8px 0 5px;">
+            <div class="char-dice-palette" id="char-dice-palette" style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;"></div>
+          </div>
+          <div style="text-align: center; margin-top: 20px;">
+            <button class="btn btn-gold" id="btn-confirm-energy">✅ 確認並開始對戰</button>
+          </div>
+        </div>
+  
+    <!-- 選4張卡畫面 -->
+  <div id="screen-select-cards" class="screen">
+    <h1>🃏 選擇你的招式卡</h1>
+    <p class="subtitle">從 7 張招式中選擇 4 張，作為本場戰鬥的全部招式！</p>
+    
+    <div style="text-align: center; margin: 15px 0;">
+      <div style="font-size: 2.5rem; margin-bottom: 8px;" id="select-cards-pokemon-emoji"></div>
+      <div style="font-weight: 600; font-size: 1.2rem;" id="select-cards-pokemon-name"></div>
+      <div style="color: var(--muted); font-size: 0.9rem;">
+        屬性：<span id="select-cards-pokemon-type" style="display: inline-block; padding: 2px 6px; border-radius: 6px; margin-left: 4px;"></span>
+        | HP: 120
+      </div>
+    </div>
+    
+    <div style="text-align: center; margin: 10px 0; color: var(--muted); font-size: 0.85rem;">
+      點擊卡片選擇／取消，最多選 4 張（每回合只能用 1 張，不能連續重複）：
+    </div>
+    
+    <div class="skills-panel" id="select-cards-panel" style="max-height: 400px;"></div>
+    
+    <div style="text-align: center; margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+      <button class="btn btn-secondary" id="btn-random-select" style="padding: 8px 16px;">🎲 隨機選 4 張</button>
+      <button class="btn btn-secondary" id="btn-clear-select" style="padding: 8px 16px;">🗑️ 清空選擇</button>
+    </div>
+    
+    <div style="text-align: center; margin-top: 20px;">
+      <button class="btn btn-gold btn-lg" id="btn-confirm-select" disabled style="padding: 12px 32px; font-size: 1.1rem;">
+        ✅ 確認選擇並開始戰鬥
+      </button>
+    </div>
+  </div>
+
+<!-- 戰鬥畫面 -->
+  <div id="screen-battle" class="screen">
+    <div class="turn-indicator">
+      <button class="btn btn-secondary" id="btn-back-menu" style="padding: 5px 10px; font-size: 0.75rem;">← 返回</button>
+      <span>回合 <span id="turn-number">1</span></span>
+      <span id="turn-indicator" style="color: var(--gold);">🟢 你的回合</span>
+    </div>
+    
+    <div class="stats-row">
+      <span>🎯 你的 HP: <strong id="player-hp-text">120/120</strong></span>
+      <span>👾 敵人 HP: <strong id="enemy-hp-text">120/120</strong></span>
+      <span>💰 你剩餘能量: <strong id="player-energy-count">3</strong></span>
+    </div>
+    
+    <div class="battle-field">
+      <div class="combatant player" id="player-combatant">
+        <div style="font-size: 0.8rem; color: var(--gold); font-weight: 600;">你的寶可夢</div>
+        <div style="font-size: 3rem; margin: 5px 0;" id="player-pokemon-emoji"></div>
+        <div style="font-weight: 600; font-size: 1rem;" id="player-pokemon-name"></div>
+        <div class="hp-bar-container">
+          <div class="hp-bar" id="player-hp-bar" style="width: 100%;"></div>
+        </div>
+        <div class="dice-tray" id="player-dice-tray">
+          <div style="width: 100%; margin-bottom: 4px;">
+            <div class="die-label">🎲 你的能量骰（3）+ 角色骰（1）</div>
+          </div>
+          <div class="dice-group" id="player-energy-dice-group">
+            <span class="dice-group-label">能量：</span>
+          </div>
+          <div style="width: 8px;"></div>
+          <div class="dice-group" id="player-char-dice-group">
+            <span class="dice-group-label">角色：</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="vs-text">VS</div>
+      
+      <div class="combatant enemy" id="enemy-combatant">
+        <div style="font-size: 0.8rem; color: var(--accent); font-weight: 600;">野生寶可夢</div>
+        <div style="font-size: 3rem; margin: 5px 0;" id="enemy-pokemon-emoji"></div>
+        <div style="font-weight: 600; font-size: 1rem;" id="enemy-pokemon-name"></div>
+        <div class="hp-bar-container">
+          <div class="hp-bar" id="enemy-hp-bar" style="width: 100%;"></div>
+        </div>
+        <div class="dice-tray enemy-tray" id="enemy-dice-tray">
+          <div style="width: 100%; margin-bottom: 4px;">
+            <div class="die-label" style="color: var(--accent);">🎲 敵人能量骰（3）+ 角色骰（1）</div>
+          </div>
+          <div class="dice-group" id="enemy-energy-dice-group">
+            <span class="dice-group-label">能量：</span>
+          </div>
+          <div style="width: 8px;"></div>
+          <div class="dice-group" id="enemy-char-dice-group">
+            <span class="dice-group-label">角色：</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="message-box info" id="battle-message">
+      選擇一個招式，然後點擊「投擲能量骰子」發動攻擊！
+    </div>
+    
+    <div class="skills-panel" id="skills-panel"></div>
+    
+    <div class="controls" id="battle-controls">
+      <button class="btn" id="btn-roll-dice">🎲 投擲能量骰子</button>
+    </div>
+  </div>
+  
+  <!-- 骰子測試畫面 -->
+  <div id="screen-test" class="screen">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+      <h1>🎲 骰子測試工具</h1>
+      <button class="btn btn-secondary" id="btn-back-to-battle" style="padding: 5px 10px; font-size: 0.75rem;">← 返回戰鬥</button>
+    </div>
+    
+    <p class="subtitle">單獨測試能量骰子擲骰機制，不進入完整戰鬥</p>
+    
+    <div class="test-controls">
+      <h3>1. 設置參數</h3>
+      <div class="test-grid">
+        <div class="test-item">
+          <label>選擇角色</label>
+          <select id="test-pokemon-select"></select>
+        </div>
+        <div class="test-item">
+          <label>選擇招式</label>
+          <select id="test-move-select"></select>
+        </div>
+        <div class="test-item">
+          <label>自定義能量骰子（3 個）</label>
+          <div id="test-energy-slots" class="energy-config" style="margin-top: 8px;"></div>
+        </div>
+        <div class="test-item">
+          <label>能量骰成功概率</label>
+          <select id="test-success-rate">
+            <option value="0.3">30% (保守)</option>
+            <option value="0.5">50% (普通)</option>
+            <option value="0.7" selected>70% (標準)</option>
+            <option value="0.9">90% (樂觀)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    
+    <div class="test-controls">
+      <h3>2. 執行擲骰測試</h3>
+      <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+        <button class="btn btn-gold" id="btn-test-roll">🎲 執行一次擲骰測試</button>
+        <button class="btn btn-secondary" id="btn-test-bulk" style="padding: 10px 20px;">📊 批量測試 100 次</button>
+      </div>
+    </div>
+    
+    <div class="test-result" id="test-result" style="display: none;">
+      <h4>測試結果</h4>
+      <pre id="test-result-content"></pre>
+    </div>
+  </div>
+  
+  <!-- 結果畫面 -->
+  <div id="screen-result" class="screen">
+    <div class="result-box">
+      <h2 id="result-title">🏆 勝利！</h2>
+      <p id="result-message">你擊敗了野生寶可夢！</p>
+      <div class="divider"></div>
+      <p style="color: var(--muted); font-size: 0.85rem; margin-bottom: 15px;" id="result-stats"></p>
+      <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+        <button class="btn btn-gold" id="btn-continue">繼續冒險</button>
+        <button class="btn btn-secondary" id="btn-back-to-select">返回選擇角色</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 擲骰動畫 overlay -->
+  <div id="roll-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 50; align-items: center; justify-content: center;">
+    <div style="text-align: center;">
+      <div style="font-size: 3.5rem; margin-bottom: 12px; animation: shake 0.5s ease-in-out infinite;">🎲</div>
+      <div id="roll-animation-text" style="font-size: 1.2rem; color: var(--gold);">擲骰中...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== 能量屬性定義 ====================
+
+const ENERGY_TYPES = {
+  '草': { color: '#7cb342', bg: 'linear-gradient(135deg, #7cb342, #558b2f)', emoji: '🌿' },
+  '火': { color: '#ff5722', bg: 'linear-gradient(135deg, #ff5722, #c62828)', emoji: '🔥' },
+  '水': { color: '#2196f3', bg: 'linear-gradient(135deg, #2196f3, #1565c0)', emoji: '💧' },
+  '雷': { color: '#ffd700', bg: 'linear-gradient(135deg, #ffd700, #f9a825)', emoji: '⚡' },
+  '超': { color: '#ba68c8', bg: 'linear-gradient(135deg, #ba68c8, #7b1fa2)', emoji: '🔮' },
+  '格': { color: '#8d6e63', bg: 'linear-gradient(135deg, #8d6e63, #5d4037)', emoji: '👊' },
+  '惡': { color: '#5d4037', bg: 'linear-gradient(135deg, #5d4037, #3e2723)', emoji: '🦇' },
+  '鋼': { color: '#90a4ae', bg: 'linear-gradient(135deg, #90a4ae, #607d8b)', emoji: '⚙️' },
+  '飛': { color: '#4dd0e1', bg: 'linear-gradient(135deg, #4dd0e1, #00838f)', emoji: '🕊️' },
+  '無': { color: '#666', bg: 'linear-gradient(135deg, #666, #444)', emoji: '⬜' },
+  '無色': { color: '#fff', bg: 'linear-gradient(135deg, #9e9e9e, #616161)', emoji: '⬜' },
+};
+
+// ============================================================
+// 6 面骰子模型（多屬性面支援）
+// ============================================================
+
+// 玩家的 6 面能量骰配置（3 個骰子，每個 6 面）
+// 每個骰子：4 個單屬性面 + 2 個雙屬性面
+// 單屬性：例如 "草"、"火"
+// 雙屬性：例如 "草/火"、"水/雷"（可以係相同元素例如"草/草"）
+let playerEnergyDice6 = [
+  ['草', '草', '草', '草', '草/火', '草/火'],  // 骰 1 預設：4 草單屬性 + 2 草/火雙屬性
+  ['草', '草', '草', '草', '草/火', '草/火'],  // 骰 2
+  ['草', '草', '草', '草', '草/火', '草/火'],  // 骰 3
+];
+
+// 玩家的角色骰 6 面配置（每面一種姿勢）
+let playerCharDie6 = ['站立', '站立', '站立', '站立', '站立', '站立'];
+
+// 敵人的角色骰 6 面配置
+let enemyCharDie6 = ['站立', '站立', '站立', '站立', '站立', '站立'];
+
+// 當前選中的能量骰索引（哪個骰子）
+let selectedEnergyDieIdx = 0;
+// 當前選中的面索引（在該骰子內）
+let selectedFaceIdx = 0;
+// 當前選中的角色骰面索引
+let selectedCharFaceIdx = 0;
+
+// 儲存上次擲骰結果（用於戰鬥畫面顯示）
+let lastPlayerRoll = null;
+let lastEnemyRoll = null;
+
+// ==================== 真實招式數據（12 隻，84 張，來自 waza.js） ====================
+
+const MOVES_DB = {
+  "st01-01-01": {
+    id: "st01-01-01",
+    name: "藤鞭",
+    nameJp: "つるのムチ",
+    type: "草",
+    damage: 10,
+    cost: ["\u8349"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "仰躺", "趴臥"]
+  },
+  "st01-01-02": {
+    id: "st01-01-02",
+    name: "飛葉快刀",
+    nameJp: "はっぱカッター",
+    type: "草",
+    damage: 20,
+    cost: ["\u8349", "\u8349"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "st01-01-03": {
+    id: "st01-01-03",
+    name: "寄生種子",
+    nameJp: "やどりぎのタネ",
+    type: "草",
+    damage: 10,
+    cost: ["\u8349", "\u8349"],
+    effect: "對手下一回合，對手能量骰子減少 1 個。自己下一回合，能量骰子增加 1 個。",
+    directions: ["站立", "仰躺", "橫躺（左）", "橫躺（右）"]
+  },
+  "st01-01-04": {
+    id: "st01-01-04",
+    name: "打草結",
+    nameJp: "くさむすび",
+    type: "草",
+    damage: 30,
+    cost: ["\u8349", "\u8349", "\u8349"],
+    effect: "選對手一個招式，對手下一回合唔可以用嗰個招式。",
+    directions: ["站立", "仰躺", "趴臥"]
+  },
+  "st01-01-05": {
+    id: "st01-01-05",
+    name: "突擊",
+    nameJp: "とつげき",
+    type: "草",
+    damage: 30,
+    cost: ["\u8349", "\u8349", "\u8349"],
+    effect: "追加 40 傷害。 自己都受 30 傷害。",
+    directions: ["站立", "仰躺", "倒立", "趴臥"]
+  },
+  "st01-01-06": {
+    id: "st01-01-06",
+    name: "終極吸取",
+    nameJp: "ギガドレイン",
+    type: "草",
+    damage: 40,
+    cost: ["\u8349", "\u8349", "\u8349", "\u8349"],
+    effect: "自己回復 40 HP。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "st01-01-07": {
+    id: "st01-01-07",
+    name: "酸液炸彈",
+    nameJp: "アシッドボム",
+    type: "惡",
+    damage: 10,
+    cost: ["\u60e1", "\u7121", "\u7121"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "st02-01-01": {
+    id: "st02-01-01",
+    name: "火花",
+    nameJp: "ひのこ",
+    type: "火",
+    damage: 20,
+    cost: ["\u706b", "\u706b"],
+    effect: "追加 30 傷害。",
+    directions: ["站立", "仰躺"]
+  },
+  "st02-01-02": {
+    id: "st02-01-02",
+    name: "升溫",
+    nameJp: "ヒートアップ",
+    type: "火",
+    damage: 10,
+    cost: ["\u706b", "\u706b"],
+    effect: "自己下一回合，能量骰子增加 2 個。",
+    directions: ["站立", "仰躺"]
+  },
+  "st02-01-03": {
+    id: "st02-01-03",
+    name: "噴射火焰",
+    nameJp: "かえんほうしゃ",
+    type: "火",
+    damage: 40,
+    cost: ["\u706b", "\u706b", "\u706b"],
+    effect: "追加 20 傷害。 自己下一回合，能量骰子減少 1 個。",
+    directions: ["站立", "仰躺", "倒立", "趴臥", "橫躺（左）", "橫躺（右）"]
+  },
+  "st02-01-04": {
+    id: "st02-01-04",
+    name: "火焰牙",
+    nameJp: "ほのおのキバ",
+    type: "火",
+    damage: 30,
+    cost: ["\u706b", "\u706b", "\u706b", "\u706b"],
+    effect: "追加 30 傷害。",
+    directions: ["站立", "仰躺", "趴臥"]
+  },
+  "st02-01-05": {
+    id: "st02-01-05",
+    name: "烈焰風暴",
+    nameJp: "フレアストーム",
+    type: "火",
+    damage: 20,
+    cost: ["\u7121", "\u7121", "\u7121", "\u7121", "\u7121"],
+    effect: "按擲出嘅火能量數量 ×10 追加傷害。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "st02-01-06": {
+    id: "st02-01-06",
+    name: "雷電拳",
+    nameJp: "かみなりパンチ",
+    type: "雷",
+    damage: 10,
+    cost: ["\u96f7", "\u7121", "\u7121"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "仰躺", "橫躺（左）", "橫躺（右）"]
+  },
+  "st02-01-07": {
+    id: "st02-01-07",
+    name: "金屬爪",
+    nameJp: "メタルクロー",
+    type: "鋼",
+    damage: 20,
+    cost: ["\u92fc", "\u7121", "\u7121"],
+    effect: "追加 40 傷害。",
+    directions: ["站立"]
+  },
+  "st03-01-01": {
+    id: "st03-01-01",
+    name: "水槍",
+    nameJp: "みずでっぽう",
+    type: "水",
+    damage: 10,
+    cost: ["\u6c34"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "趴臥"]
+  },
+  "st03-01-02": {
+    id: "st03-01-02",
+    name: "縮入殼中",
+    nameJp: "からにこもる",
+    type: "水",
+    damage: 0,
+    cost: ["\u6c34"],
+    effect: "對手下一回合，自己受到嘅傷害 -20。",
+    directions: ["趴臥"]
+  },
+  "st03-01-03": {
+    id: "st03-01-03",
+    name: "水之波動",
+    nameJp: "みずのはどう",
+    type: "水",
+    damage: 20,
+    cost: ["\u6c34", "\u6c34"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "st03-01-04": {
+    id: "st03-01-04",
+    name: "貝殼攻擊",
+    nameJp: "シェルアタック",
+    type: "水",
+    damage: 30,
+    cost: ["\u6c34", "\u6c34", "\u6c34"],
+    effect: "對手下一回合，自己受到嘅傷害 -20。",
+    directions: ["站立", "仰躺", "趴臥"]
+  },
+  "st03-01-05": {
+    id: "st03-01-05",
+    name: "泡沫光線",
+    nameJp: "バブルこうせん",
+    type: "水",
+    damage: 30,
+    cost: ["\u6c34", "\u6c34", "\u6c34"],
+    effect: "對手下一回合，對手能量骰子減少 1 個。",
+    directions: ["站立", "仰躺", "趴臥"]
+  },
+  "st03-01-06": {
+    id: "st03-01-06",
+    name: "水流怒濤",
+    nameJp: "ハイドロアンガー",
+    type: "水",
+    damage: 40,
+    cost: ["\u6c34", "\u6c34", "\u6c34", "\u6c34"],
+    effect: "自己剩餘 HP 40 或以下時，追加 60 傷害。",
+    directions: ["站立", "仰躺", "趴臥"]
+  },
+  "st03-01-07": {
+    id: "st03-01-07",
+    name: "潑泥",
+    nameJp: "マッドショット",
+    type: "格",
+    damage: 30,
+    cost: ["\u683c", "\u7121", "\u7121", "\u7121"],
+    effect: "追加 30 傷害。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "st04-01-01": {
+    id: "st04-01-01",
+    name: "啃咬",
+    nameJp: "かじる",
+    type: "雷",
+    damage: 10,
+    cost: ["\u96f7"],
+    effect: "追加 30 傷害。",
+    directions: ["站立", "仰躺"]
+  },
+  "st04-01-02": {
+    id: "st04-01-02",
+    name: "電擊",
+    nameJp: "でんきショック",
+    type: "雷",
+    damage: 10,
+    cost: ["\u96f7", "\u96f7"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "仰躺", "橫躺（左）", "橫躺（右）"]
+  },
+  "st04-01-03": {
+    id: "st04-01-03",
+    name: "電擊連打",
+    nameJp: "エレキラッシュ",
+    type: "雷",
+    damage: 20,
+    cost: ["\u96f7", "\u96f7"],
+    effect: "呢個招式唔計算弱點。",
+    directions: ["站立", "仰躺"]
+  },
+  "st04-01-04": {
+    id: "st04-01-04",
+    name: "十萬伏特",
+    nameJp: "10まんボルト",
+    type: "雷",
+    damage: 30,
+    cost: ["\u96f7", "\u96f7", "\u96f7"],
+    effect: "追加 30 傷害。 自己下一回合，能量骰子減少 2 個。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）", "倒立", "仰躺", "趴臥"]
+  },
+  "st04-01-05": {
+    id: "st04-01-05",
+    name: "打雷",
+    nameJp: "かみなり",
+    type: "雷",
+    damage: 20,
+    cost: ["\u96f7", "\u96f7", "\u96f7"],
+    effect: "追加 60 傷害。",
+    directions: ["站立"]
+  },
+  "st04-01-06": {
+    id: "st04-01-06",
+    name: "伏特攻擊",
+    nameJp: "ボルテッカー",
+    type: "雷",
+    damage: 40,
+    cost: ["\u96f7", "\u96f7", "\u96f7", "\u96f7"],
+    effect: "自己都受 30 傷害。",
+    directions: ["站立", "仰躺", "趴臥"]
+  },
+  "st04-01-07": {
+    id: "st04-01-07",
+    name: "鐵尾",
+    nameJp: "アイアンテール",
+    type: "鋼",
+    damage: 20,
+    cost: ["\u92fc"],
+    effect: "對手下一回合，自己受到嘅傷害 -10。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "st05-01-01": {
+    id: "st05-01-01",
+    name: "尾巴拍打",
+    nameJp: "しっぽではたく",
+    type: "無",
+    damage: 10,
+    cost: ["\u98db"],
+    effect: "追加 10 傷害。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "st05-01-02": {
+    id: "st05-01-02",
+    name: "撞擊",
+    nameJp: "たいあたり",
+    type: "無",
+    damage: 10,
+    cost: ["\u98db", "\u98db"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "仰躺", "橫躺（左）", "橫躺（右）"]
+  },
+  "st05-01-03": {
+    id: "st05-01-03",
+    name: "猛撞",
+    nameJp: "とっしん",
+    type: "無",
+    damage: 30,
+    cost: ["\u98db", "\u98db"],
+    effect: "追加 20 傷害。 自己都受 20 傷害。",
+    directions: ["站立", "仰躺", "倒立", "趴臥"]
+  },
+  "st05-01-04": {
+    id: "st05-01-04",
+    name: "亂蹦亂跳",
+    nameJp: "はねまわる",
+    type: "無",
+    damage: 0,
+    cost: ["\u98db", "\u98db", "\u98db"],
+    effect: "造成 70 傷害。 造成 40 傷害。 造成 20 傷害。",
+    directions: ["站立", "仰躺", "趴臥", "倒立", "橫躺（左）", "橫躺（右）"]
+  },
+  "st05-01-05": {
+    id: "st05-01-05",
+    name: "全力衝刺",
+    nameJp: "ぜんりょくダッシュ",
+    type: "無",
+    damage: 40,
+    cost: ["\u7121", "\u7121", "\u7121", "\u7121", "\u7121"],
+    effect: "追加 40 傷害。",
+    directions: ["站立", "仰躺", "趴臥"]
+  },
+  "st05-01-06": {
+    id: "st05-01-06",
+    name: "撒嬌",
+    nameJp: "あまえる",
+    type: "超",
+    damage: 20,
+    cost: ["\u8d85"],
+    effect: "對手下一回合，對手能量骰子減少 2 個。",
+    directions: ["站立", "仰躺", "橫躺（左）", "橫躺（右）"]
+  },
+  "st05-01-07": {
+    id: "st05-01-07",
+    name: "咬住",
+    nameJp: "かみつく",
+    type: "惡",
+    damage: 10,
+    cost: ["\u60e1", "\u7121", "\u7121"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "st06-01-01": {
+    id: "st06-01-01",
+    name: "念力",
+    nameJp: "ねんりき",
+    type: "超",
+    damage: 10,
+    cost: ["\u8d85"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "st06-01-02": {
+    id: "st06-01-02",
+    name: "幻象光線",
+    nameJp: "サイケこうせん",
+    type: "超",
+    damage: 20,
+    cost: ["\u8d85", "\u8d85"],
+    effect: "追加 30 傷害。",
+    directions: ["站立", "倒立"]
+  },
+  "st06-01-03": {
+    id: "st06-01-03",
+    name: "屏障",
+    nameJp: "バリアー",
+    type: "超",
+    damage: 0,
+    cost: ["\u8d85", "\u8d85"],
+    effect: "對手下一回合，自己受到嘅傷害 -20。",
+    directions: ["站立", "仰躺"]
+  },
+  "st06-01-04": {
+    id: "st06-01-04",
+    name: "記憶跳躍",
+    nameJp: "メモリースキップ",
+    type: "超",
+    damage: 20,
+    cost: ["\u8d85", "\u8d85"],
+    effect: "選對手一個招式，對手下一回合唔可以用嗰個招式。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "st06-01-05": {
+    id: "st06-01-05",
+    name: "精神射擊",
+    nameJp: "サイコショット",
+    type: "超",
+    damage: 30,
+    cost: ["\u8d85", "\u8d85", "\u8d85"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "倒立", "仰躺", "趴臥"]
+  },
+  "st06-01-06": {
+    id: "st06-01-06",
+    name: "精神強念",
+    nameJp: "サイコキネシス",
+    type: "超",
+    damage: 20,
+    cost: ["\u8d85", "\u8d85", "\u8d85"],
+    effect: "對手擲 3 個能量骰子，按出得最多嗰種能量嘅數量 ×10 追加傷害。",
+    directions: ["站立", "仰躺", "趴臥"]
+  },
+  "st06-01-07": {
+    id: "st06-01-07",
+    name: "反射屏障",
+    nameJp: "リフレクション",
+    type: "超",
+    damage: 0,
+    cost: ["\u8d85", "\u8d85", "\u8d85", "\u8d85"],
+    effect: "對對手造成佢最後選嘅招式所寫嘅傷害。（唔計嗰個招式嘅角色骰子效果。）",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-03-01": {
+    id: "eb01-03-01",
+    name: "集中",
+    nameJp: "しゅうちゅう",
+    type: "草",
+    damage: 0,
+    cost: ["\u8349"],
+    effect: "自己下一回合，能量骰子增加 2 個。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-03-02": {
+    id: "eb01-03-02",
+    name: "忍耐",
+    nameJp: "たえる",
+    type: "草",
+    damage: 0,
+    cost: ["\u8349", "\u8349"],
+    effect: "對手下一回合，自己受到嘅傷害 -20。",
+    directions: ["站立", "仰躺", "趴臥"]
+  },
+  "eb01-03-03": {
+    id: "eb01-03-03",
+    name: "角撞",
+    nameJp: "つのでたたく",
+    type: "草",
+    damage: 20,
+    cost: ["\u8349", "\u8349", "\u8349"],
+    effect: "追加 30 傷害。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-03-04": {
+    id: "eb01-03-04",
+    name: "極落鉗",
+    nameJp: "ハサミギロチン",
+    type: "無",
+    damage: 0,
+    cost: ["\u8349", "\u8349", "\u8349", "\u8349", "\u8349"],
+    effect: "造成 150 傷害。",
+    directions: ["站立"]
+  },
+  "eb01-03-05": {
+    id: "eb01-03-05",
+    name: "劈瓦",
+    nameJp: "かわらわり",
+    type: "格",
+    damage: 20,
+    cost: ["\u683c"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "仰躺"]
+  },
+  "eb01-03-06": {
+    id: "eb01-03-06",
+    name: "蓄力鉗",
+    nameJp: "チャージばさみ",
+    type: "草",
+    damage: 20,
+    cost: ["\u8349", "\u8349"],
+    effect: "自己下一回合，能量骰子增加 1 個。",
+    directions: ["站立", "仰躺"]
+  },
+  "eb01-03-07": {
+    id: "eb01-03-07",
+    name: "狂暴揮擊",
+    nameJp: "ぎゃくじょうスイング",
+    type: "草",
+    damage: 10,
+    cost: ["\u8349", "\u8349", "\u8349"],
+    effect: "自己上一回合招式嘅能量骰子失敗嘅話，追加 40 傷害。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-03-08": {
+    id: "eb01-03-08",
+    name: "突擊",
+    nameJp: "とつげき",
+    type: "草",
+    damage: 30,
+    cost: ["\u8349", "\u8349", "\u8349"],
+    effect: "追加 20 傷害。 自己都受 20 傷害。",
+    directions: ["站立", "仰躺", "倒立", "趴臥"]
+  },
+  "eb01-03-09": {
+    id: "eb01-03-09",
+    name: "必殺鉗",
+    nameJp: "ひっさつばさみ",
+    type: "草",
+    damage: 20,
+    cost: ["\u8349", "\u8349", "\u8349", "\u8349"],
+    effect: "追加 80 傷害。",
+    directions: ["站立"]
+  },
+  "eb01-03-10": {
+    id: "eb01-03-10",
+    name: "地獄翻滾",
+    nameJp: "じごくぐるま",
+    type: "格",
+    damage: 30,
+    cost: ["\u683c", "\u7121", "\u7121", "\u7121"],
+    effect: "自己都受 20 傷害。",
+    directions: ["站立", "倒立", "仰躺", "趴臥"]
+  },
+  "eb01-06-01": {
+    id: "eb01-06-01",
+    name: "火焰之翼",
+    nameJp: "ほのおのつばさ",
+    type: "火",
+    damage: 30,
+    cost: ["\u706b", "\u706b"],
+    effect: "追加 30 傷害。 自己都受 20 傷害。",
+    directions: ["站立", "仰躺", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-06-02": {
+    id: "eb01-06-02",
+    name: "熱風",
+    nameJp: "ねっぷう",
+    type: "火",
+    damage: 30,
+    cost: ["\u706b", "\u706b", "\u706b"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-06-03": {
+    id: "eb01-06-03",
+    name: "噴射火焰",
+    nameJp: "かえんほうしゃ",
+    type: "火",
+    damage: 40,
+    cost: ["\u706b", "\u706b", "\u706b", "\u706b"],
+    effect: "追加 40 傷害。 自己下一回合，能量骰子減少 2 個。",
+    directions: ["站立", "仰躺", "倒立", "趴臥", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-06-04": {
+    id: "eb01-06-04",
+    name: "閃焰衝鋒",
+    nameJp: "フレアドライブ",
+    type: "火",
+    damage: 50,
+    cost: ["\u706b", "\u706b", "\u706b", "\u706b", "\u706b"],
+    effect: "追加 40 傷害。 自己都受 40 傷害。",
+    directions: ["站立", "仰躺", "趴臥", "橫躺（左）", "橫躺（右）", "倒立"]
+  },
+  "eb01-06-05": {
+    id: "eb01-06-05",
+    name: "暴風",
+    nameJp: "ぼうふう",
+    type: "飛",
+    damage: 20,
+    cost: ["\u98db", "\u7121", "\u7121", "\u7121"],
+    effect: "追加 60 傷害。",
+    directions: ["站立"]
+  },
+  "eb01-06-06": {
+    id: "eb01-06-06",
+    name: "火焰漩渦",
+    nameJp: "ほのおのうず",
+    type: "火",
+    damage: 20,
+    cost: ["\u706b", "\u706b"],
+    effect: "追加 40 傷害。 自己下一回合，能量骰子減少 2 個。",
+    directions: ["站立", "仰躺", "趴臥", "倒立", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-06-07": {
+    id: "eb01-06-07",
+    name: "灼熱吐息",
+    nameJp: "ヒートブレス",
+    type: "火",
+    damage: 40,
+    cost: ["\u706b", "\u706b", "\u706b"],
+    effect: "追加 40 傷害。 自己都受 30 傷害。",
+    directions: ["站立", "仰躺", "倒立", "趴臥"]
+  },
+  "eb01-06-08": {
+    id: "eb01-06-08",
+    name: "燃盡",
+    nameJp: "もえつきる",
+    type: "火",
+    damage: 80,
+    cost: ["\u706b", "\u706b", "\u706b", "\u706b"],
+    effect: "呢個招式會失敗。",
+    directions: ["仰躺", "趴臥", "倒立"]
+  },
+  "eb01-06-09": {
+    id: "eb01-06-09",
+    name: "翅膀連擊",
+    nameJp: "ウイングラッシュ",
+    type: "飛",
+    damage: 20,
+    cost: ["\u98db"],
+    effect: "追加 10 傷害。",
+    directions: ["站立", "仰躺", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-06-10": {
+    id: "eb01-06-10",
+    name: "飛翔",
+    nameJp: "そらをとぶ",
+    type: "飛",
+    damage: 30,
+    cost: ["\u98db", "\u7121", "\u7121"],
+    effect: "對手下一回合，自己唔會受到招式傷害。 呢個招式會失敗。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）", "仰躺", "趴臥", "倒立"]
+  },
+  "eb01-04-01": {
+    id: "eb01-04-01",
+    name: "冰之翼",
+    nameJp: "アイスウイング",
+    type: "水",
+    damage: 10,
+    cost: ["\u6c34", "\u6c34"],
+    effect: "對手下一回合，對手能量骰子減少 1 個。",
+    directions: ["站立", "仰躺", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-04-02": {
+    id: "eb01-04-02",
+    name: "凍結之刃",
+    nameJp: "いてつくやいば",
+    type: "水",
+    damage: 30,
+    cost: ["\u6c34", "\u6c34", "\u6c34"],
+    effect: "對手下一回合，對手唔可以擲角色骰子。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-04-03": {
+    id: "eb01-04-03",
+    name: "暴風雪風暴",
+    nameJp: "ブリザードストーム",
+    type: "水",
+    damage: 30,
+    cost: ["\u6c34", "\u6c34", "\u6c34", "\u6c34"],
+    effect: "追加 30 傷害。",
+    directions: ["站立", "仰躺", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-04-04": {
+    id: "eb01-04-04",
+    name: "空氣利刃",
+    nameJp: "エアカッター",
+    type: "飛",
+    damage: 40,
+    cost: ["\u98db", "\u7121", "\u7121", "\u7121"],
+    effect: "追加 30 傷害。",
+    directions: ["站立", "仰躺"]
+  },
+  "eb01-04-05": {
+    id: "eb01-04-05",
+    name: "羽息",
+    nameJp: "はねやすめ",
+    type: "飛",
+    damage: 0,
+    cost: ["\u98db", "\u98db"],
+    effect: "自己回復 20 HP。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-04-06": {
+    id: "eb01-04-06",
+    name: "冰凍俯衝",
+    nameJp: "フリーズダイブ",
+    type: "水",
+    damage: 10,
+    cost: ["\u6c34"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "仰躺"]
+  },
+  "eb01-04-07": {
+    id: "eb01-04-07",
+    name: "冰擊",
+    nameJp: "アイスショット",
+    type: "水",
+    damage: 20,
+    cost: ["\u6c34", "\u6c34"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-04-08": {
+    id: "eb01-04-08",
+    name: "寒冷吐息",
+    nameJp: "コールドブレス",
+    type: "水",
+    damage: 20,
+    cost: ["\u6c34", "\u6c34", "\u6c34"],
+    effect: "對手下一回合，對手能量骰子減少 2 個。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-04-09": {
+    id: "eb01-04-09",
+    name: "絕對零度",
+    nameJp: "ぜったいれいど",
+    type: "水",
+    damage: 40,
+    cost: ["\u6c34", "\u6c34", "\u6c34", "\u6c34"],
+    effect: "對手下一回合，對手能量骰子減少 2 個。仲要唔可以擲角色骰子。",
+    directions: ["站立", "仰躺"]
+  },
+  "eb01-04-10": {
+    id: "eb01-04-10",
+    name: "飛翔",
+    nameJp: "そらをとぶ",
+    type: "飛",
+    damage: 30,
+    cost: ["\u98db", "\u7121", "\u7121"],
+    effect: "對手下一回合，自己唔會受到招式傷害。 呢個招式會失敗。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）", "仰躺", "趴臥", "倒立"]
+  },
+  "eb01-05-01": {
+    id: "eb01-05-01",
+    name: "電磁閃光",
+    nameJp: "でんじフラッシュ",
+    type: "雷",
+    damage: 20,
+    cost: ["\u96f7", "\u96f7"],
+    effect: "追加 30 傷害。",
+    directions: ["站立", "仰躺"]
+  },
+  "eb01-05-02": {
+    id: "eb01-05-02",
+    name: "電擊",
+    nameJp: "でんきショック",
+    type: "雷",
+    damage: 10,
+    cost: ["\u96f7"],
+    effect: "追加 10 傷害。",
+    directions: ["站立", "仰躺", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-05-03": {
+    id: "eb01-05-03",
+    name: "伏特連擊",
+    nameJp: "ボルトラッシュ",
+    type: "雷",
+    damage: 10,
+    cost: ["\u96f7", "\u96f7", "\u96f7", "\u96f7"],
+    effect: "呢個招式合共擲 3 次角色骰子。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-05-04": {
+    id: "eb01-05-04",
+    name: "燕返",
+    nameJp: "つばめがえし",
+    type: "飛",
+    damage: 20,
+    cost: ["\u98db"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "仰躺"]
+  },
+  "eb01-05-05": {
+    id: "eb01-05-05",
+    name: "劈啪雷翼",
+    nameJp: "バリバリウイング",
+    type: "飛",
+    damage: 40,
+    cost: ["\u98db", "\u7121", "\u7121", "\u7121", "\u7121"],
+    effect: "追加 40 傷害。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-05-06": {
+    id: "eb01-05-06",
+    name: "雙重打雷",
+    nameJp: "ダブルサンダー",
+    type: "雷",
+    damage: 0,
+    cost: ["\u96f7"],
+    effect: "呢個招式合共擲 2 次角色骰子。",
+    directions: ["站立", "仰躺", "趴臥"]
+  },
+  "eb01-05-07": {
+    id: "eb01-05-07",
+    name: "電擊之箭",
+    nameJp: "エレキアロー",
+    type: "雷",
+    damage: 20,
+    cost: ["\u96f7", "\u96f7"],
+    effect: "追加 40 傷害。",
+    directions: ["站立"]
+  },
+  "eb01-05-08": {
+    id: "eb01-05-08",
+    name: "放電",
+    nameJp: "ほうでん",
+    type: "雷",
+    damage: 30,
+    cost: ["\u96f7", "\u96f7", "\u96f7"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "仰躺", "趴臥"]
+  },
+  "eb01-05-09": {
+    id: "eb01-05-09",
+    name: "雷電鎖鏈",
+    nameJp: "サンダーチェイン",
+    type: "雷",
+    damage: 30,
+    cost: ["\u96f7", "\u96f7", "\u96f7", "\u96f7"],
+    effect: "追加 30 傷害。再擲多一次角色骰子。 （可以重複到失敗為止。）",
+    directions: ["站立", "仰躺", "趴臥"]
+  },
+  "eb01-05-10": {
+    id: "eb01-05-10",
+    name: "飛翔",
+    nameJp: "そらをとぶ",
+    type: "飛",
+    damage: 30,
+    cost: ["\u98db", "\u7121", "\u7121"],
+    effect: "對手下一回合，自己唔會受到招式傷害。 呢個招式會失敗。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）", "仰躺", "趴臥", "倒立"]
+  },
+  "eb01-02-01": {
+    id: "eb01-02-01",
+    name: "岩石衝撞",
+    nameJp: "がんせきタックル",
+    type: "格",
+    damage: 10,
+    cost: ["\u683c", "\u683c"],
+    effect: "對手下一回合，自己受到嘅傷害 -10。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-02-02": {
+    id: "eb01-02-02",
+    name: "落石",
+    nameJp: "いわおとし",
+    type: "格",
+    damage: 20,
+    cost: ["\u683c", "\u683c", "\u683c"],
+    effect: "追加 30 傷害。",
+    directions: ["站立", "仰躺"]
+  },
+  "eb01-02-03": {
+    id: "eb01-02-03",
+    name: "岩石壁",
+    nameJp: "ロックウォール",
+    type: "格",
+    damage: 30,
+    cost: ["\u683c", "\u683c", "\u683c"],
+    effect: "對手下一回合，自己受到嘅傷害 -30。",
+    directions: ["站立", "仰躺", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-02-04": {
+    id: "eb01-02-04",
+    name: "剛猛衝擊",
+    nameJp: "ハードインパクト",
+    type: "格",
+    damage: 30,
+    cost: ["\u683c", "\u683c", "\u683c", "\u683c"],
+    effect: "追加 30 傷害。 自己下一回合，能量骰子減少 1 個。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）", "倒立"]
+  },
+  "eb01-02-05": {
+    id: "eb01-02-05",
+    name: "陀螺球",
+    nameJp: "ジャイロボール",
+    type: "鋼",
+    damage: 20,
+    cost: ["\u92fc", "\u7121", "\u7121"],
+    effect: "對手都擲角色骰子，擲出【倒立／趴臥】嘅話，追加 60 傷害。",
+    directions: ["站立", "仰躺", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-02-06": {
+    id: "eb01-02-06",
+    name: "撞上",
+    nameJp: "ぶつかる",
+    type: "格",
+    damage: 10,
+    cost: ["\u683c"],
+    effect: "追加 10 傷害。",
+    directions: ["站立", "仰躺", "趴臥"]
+  },
+  "eb01-02-07": {
+    id: "eb01-02-07",
+    name: "岩崩",
+    nameJp: "いわなだれ",
+    type: "格",
+    damage: 20,
+    cost: ["\u683c", "\u683c"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-02-08": {
+    id: "eb01-02-08",
+    name: "狂野衝撞",
+    nameJp: "ワイルドタックル",
+    type: "格",
+    damage: 30,
+    cost: ["\u683c", "\u683c", "\u683c"],
+    effect: "追加 20 傷害。 自己都受 20 傷害。",
+    directions: ["站立", "仰躺", "倒立", "趴臥", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-02-09": {
+    id: "eb01-02-09",
+    name: "岩石屏障",
+    nameJp: "がんせきバリア",
+    type: "格",
+    damage: 40,
+    cost: ["\u683c", "\u683c", "\u683c", "\u683c"],
+    effect: "對手下一回合，自己受到嘅傷害 -50。",
+    directions: ["站立", "仰躺"]
+  },
+  "eb01-02-10": {
+    id: "eb01-02-10",
+    name: "鐵尾",
+    nameJp: "アイアンテール",
+    type: "鋼",
+    damage: 20,
+    cost: ["\u92fc", "\u7121", "\u7121"],
+    effect: "對手下一回合，自己受到嘅傷害 -10。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-01-01": {
+    id: "eb01-01-01",
+    name: "毒瓦斯",
+    nameJp: "どくガス",
+    type: "惡",
+    damage: 10,
+    cost: ["\u60e1"],
+    effect: "對手下一回合，對手能量骰子減少 1 個。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-01-02": {
+    id: "eb01-01-02",
+    name: "污泥投擲",
+    nameJp: "ベトベトなげ",
+    type: "惡",
+    damage: 20,
+    cost: ["\u60e1", "\u60e1"],
+    effect: "追加 20 傷害。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-01-03": {
+    id: "eb01-01-03",
+    name: "劇毒治癒",
+    nameJp: "どくどくヒール",
+    type: "惡",
+    damage: 30,
+    cost: ["\u60e1", "\u60e1", "\u60e1"],
+    effect: "自己上一回合「毒瓦斯」嘅能量骰子成功嘅話，自己回復 30 HP。",
+    directions: ["站立", "仰躺", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-01-04": {
+    id: "eb01-01-04",
+    name: "污泥包圍",
+    nameJp: "ヘドロでかこむ",
+    type: "惡",
+    damage: 30,
+    cost: ["\u60e1", "\u60e1", "\u60e1"],
+    effect: "選對手一個招式，對手下一回合唔可以用嗰個招式。",
+    directions: ["站立", "仰躺", "趴臥"]
+  },
+  "eb01-01-05": {
+    id: "eb01-01-05",
+    name: "毒液拳",
+    nameJp: "ベノムパンチ",
+    type: "惡",
+    damage: 40,
+    cost: ["\u60e1", "\u60e1", "\u60e1", "\u60e1"],
+    effect: "追加 30 傷害。",
+    directions: ["站立", "仰躺"]
+  },
+  "eb01-01-07": {
+    id: "eb01-01-07",
+    name: "毒液滑行",
+    nameJp: "ベノムスリップ",
+    type: "惡",
+    damage: 20,
+    cost: ["\u60e1", "\u60e1"],
+    effect: "對手都擲角色骰子，擲出【趴臥／倒立／橫躺（左）／橫躺（右）】嘅話，追加 20 傷害。",
+    directions: ["站立", "仰躺", "橫躺（左）", "橫躺（右）"]
+  },
+  "eb01-01-08": {
+    id: "eb01-01-08",
+    name: "劇毒炸彈",
+    nameJp: "どくどくボンバー",
+    type: "惡",
+    damage: 30,
+    cost: ["\u60e1", "\u60e1", "\u60e1"],
+    effect: "自己上一回合「毒瓦斯」嘅能量骰子成功嘅話，追加 30 傷害。",
+    directions: ["站立", "仰躺", "趴臥"]
+  },
+  "eb01-01-09": {
+    id: "eb01-01-09",
+    name: "污泥衝撞",
+    nameJp: "ヘドロタックル",
+    type: "惡",
+    damage: 20,
+    cost: ["\u60e1", "\u60e1", "\u60e1"],
+    effect: "追加 40 傷害。 自己都受 20 傷害。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）", "倒立", "仰躺", "趴臥"]
+  },
+  "eb01-01-10": {
+    id: "eb01-01-10",
+    name: "騷擾毒液",
+    nameJp: "いやがらせベノム",
+    type: "惡",
+    damage: 20,
+    cost: ["\u60e1", "\u60e1", "\u60e1", "\u60e1"],
+    effect: "對手上一回合招式嘅能量骰子失敗嘅話，追加 50 傷害。",
+    directions: ["站立", "橫躺（左）", "橫躺（右）"]
+  }
+};
+
+
+
+// ==================== 真實角色數據（12 隻，全部 120 HP） ====================
+
+const POKEMON = [
+  {
+    id: "妙蛙種子",
+    name: "妙蛙種子",
+    emoji: "🌱",
+    type: "草",
+    hp: 120,
+    weakness: "飛",
+    moves: ["st01-01-01", "st01-01-02", "st01-01-03", "st01-01-04", "st01-01-05", "st01-01-06", "st01-01-07"],
+    defaultEnergy: ['草', '草', '草']
+  },
+  {
+    id: "小火龍",
+    name: "小火龍",
+    emoji: "🦎",
+    type: "火",
+    hp: 120,
+    weakness: "水",
+    moves: ["st02-01-01", "st02-01-02", "st02-01-03", "st02-01-04", "st02-01-05", "st02-01-06", "st02-01-07"],
+    defaultEnergy: ['火', '火', '火']
+  },
+  {
+    id: "傑尼龜",
+    name: "傑尼龜",
+    emoji: "🐢",
+    type: "水",
+    hp: 120,
+    weakness: "格",
+    moves: ["st03-01-01", "st03-01-02", "st03-01-03", "st03-01-04", "st03-01-05", "st03-01-06", "st03-01-07"],
+    defaultEnergy: ['水', '水', '水']
+  },
+  {
+    id: "皮卡丘",
+    name: "皮卡丘",
+    emoji: "🐭",
+    type: "雷",
+    hp: 120,
+    weakness: "飛",
+    moves: ["st04-01-01", "st04-01-02", "st04-01-03", "st04-01-04", "st04-01-05", "st04-01-06", "st04-01-07"],
+    defaultEnergy: ['雷', '雷', '雷']
+  },
+  {
+    id: "伊布",
+    name: "伊布",
+    emoji: "🦊",
+    type: "無",
+    hp: 120,
+    weakness: "格",
+    moves: ["st05-01-01", "st05-01-02", "st05-01-03", "st05-01-04", "st05-01-05", "st05-01-06", "st05-01-07"],
+    defaultEnergy: ['格', '雷', '超']
+  },
+  {
+    id: "夢幻",
+    name: "夢幻",
+    emoji: "🦄",
+    type: "超",
+    hp: 120,
+    weakness: "格",
+    moves: ["st06-01-01", "st06-01-02", "st06-01-03", "st06-01-04", "st06-01-05", "st06-01-06", "st06-01-07"],
+    defaultEnergy: ['超', '超', '超']
+  },
+  {
+    id: "凱羅斯",
+    name: "凱羅斯",
+    emoji: "🦗",
+    type: "草",
+    hp: 120,
+    weakness: "飛",
+    moves: ["eb01-03-01", "eb01-03-02", "eb01-03-03", "eb01-03-04", "eb01-03-05", "eb01-03-06", "eb01-03-07", "eb01-03-08", "eb01-03-09", "eb01-03-10"],
+    defaultEnergy: ['草', '草', '草']
+  },
+  {
+    id: "火焰鳥",
+    name: "火焰鳥",
+    emoji: "🐦‍🔥",
+    type: "火",
+    hp: 120,
+    weakness: "水",
+    moves: ["eb01-06-01", "eb01-06-02", "eb01-06-03", "eb01-06-04", "eb01-06-05", "eb01-06-06", "eb01-06-07", "eb01-06-08", "eb01-06-09", "eb01-06-10"],
+    defaultEnergy: ['火', '火', '火']
+  },
+  {
+    id: "急凍鳥",
+    name: "急凍鳥",
+    emoji: "🐦❄️",
+    type: "水",
+    hp: 120,
+    weakness: "格",
+    moves: ["eb01-04-01", "eb01-04-02", "eb01-04-03", "eb01-04-04", "eb01-04-05", "eb01-04-06", "eb01-04-07", "eb01-04-08", "eb01-04-09", "eb01-04-10"],
+    defaultEnergy: ['水', '水', '水']
+  },
+  {
+    id: "閃電鳥",
+    name: "閃電鳥",
+    emoji: "🦅⚡",
+    type: "雷",
+    hp: 120,
+    weakness: "飛",
+    moves: ["eb01-05-01", "eb01-05-02", "eb01-05-03", "eb01-05-04", "eb01-05-05", "eb01-05-06", "eb01-05-07", "eb01-05-08", "eb01-05-09", "eb01-05-10"],
+    defaultEnergy: ['雷', '雷', '雷']
+  },
+  {
+    id: "大岩蛇",
+    name: "大岩蛇",
+    emoji: "🪨",
+    type: "格",
+    hp: 120,
+    weakness: "飛",
+    moves: ["eb01-02-01", "eb01-02-02", "eb01-02-03", "eb01-02-04", "eb01-02-05", "eb01-02-06", "eb01-02-07", "eb01-02-08", "eb01-02-09", "eb01-02-10"],
+    defaultEnergy: ['格', '格', '格']
+  },
+  {
+    id: "臭泥",
+    name: "臭泥",
+    emoji: "🦠",
+    type: "惡",
+    hp: 120,
+    weakness: "格",
+    moves: ["eb01-01-01", "eb01-01-02", "eb01-01-03", "eb01-01-04", "eb01-01-05", "eb01-01-07", "eb01-01-08", "eb01-01-09", "eb01-01-10"],
+    defaultEnergy: ['惡', '惡', '惡']
+  }
+];
+
+// ==================== 遊戲狀態 ====================
+
+const GameState = {
+  currentScreen: 'select',
+  selectedPokemon: null,
+  playerEnergy: [],
+  enemyEnergy: [],
+  playerHP: 120,
+  enemyHP: 120,
+  enemyMaxHP: 120,
+  turn: 1,
+  lastPlayerMove: null,
+  isPlayerTurn: true,
+  enemySkipTurn: false,
+  battleLog: [],
+  playerPokemonData: null,
+  enemyPokemonData: null,
+};
+
+// ==================== DOM 輔助函數 ====================
+
+function $(id) { return document.getElementById(id); }
+
+function showScreen(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(screenId).classList.add('active');
+  GameState.currentScreen = screenId;
+}
+
+function showMessage(text, type = 'info') {
+  const msgBox = $('battle-message');
+  msgBox.textContent = text;
+  msgBox.className = 'message-box ' + type;
+}
+
+function setHPBar(barId, current, max) {
+  const bar = $(barId);
+  const pct = Math.max(0, (current / max) * 100);
+  bar.style.width = pct + '%';
+  bar.innerHTML = `<span class="hp-text">${Math.max(0, current)} / ${max}</span>`;
+  if (pct <= 25) bar.classList.add('low');
+  else bar.classList.remove('low');
+}
+
+function getEnergyTypeClass(type) {
+  const map = {
+    '草': 'grass', '火': 'fire', '水': 'water', '雷': 'electric',
+    '超': 'psychic', '格': 'fighting', '惡': 'dark', '鋼': 'steel', '飛': 'flying', '無': 'void', '無色': 'colorless'
+  };
+  return map[type] || '';
+}
+
+// ==================== 角色選擇 ====================
+
+function renderPokemonSelect() {
+  const grid = $('pokemon-grid');
+  grid.innerHTML = '';
+  
+  POKEMON.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'pokemon-card';
+    card.dataset.id = p.id;
+    const typeClass = 'type-' + (p.type === '無' ? 'void' : p.type.toLowerCase());
+    card.innerHTML = `
+      <img src="characters/${encodeURIComponent(p.name)}.png" alt="${p.name}" class="pokemon-img" onerror="this.style.display='none'; this.parentElement.querySelector('.emoji').style.display='block';">
+      <div class="emoji" style="display:none;">${p.emoji}</div>
+      <div class="name">${p.name}</div>
+      <span class="type ${typeClass}" style="background: ${ENERGY_TYPES[p.type]?.bg || '#666'}; color: ${p.type === '雷' || p.type === '鋼' ? '#1a1a2e' : 'white'};">${p.type}</span>
+    `;
+    card.addEventListener('click', () => selectPokemon(p.id));
+    grid.appendChild(card);
+  });
+}
+
+function selectPokemon(id) {
+  const pokemon = POKEMON.find(p => p.id === id);
+  if (!pokemon) return;
+  
+  GameState.selectedPokemon = pokemon;
+  GameState.playerPokemonData = { ...pokemon };
+  GameState.playerHP = pokemon.hp;
+  
+  document.querySelectorAll('.pokemon-card').forEach(c => {
+    c.classList.toggle('selected', c.dataset.id === id);
+  });
+  
+  var btn = document.getElementById('btn-start-battle');
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = '開始對戰';
+  }
+}
+
+// 「開始對戰」按鈕 → 進入選 4 張招式卡畫面
+$('btn-start-battle').addEventListener('click', () => {
+  if (!GameState.selectedPokemon) {
+    showMessage('⚠️ 請先選擇一隻寶可夢！', 'fail');
+    return;
+  }
+  showSelectCardsScreen();
+});
+
+// ==================== 能量骰配置 ====================
+// ==================== 選4張卡功能 ====================
+
+let selectedCards = [];  // 玩家選的4張卡
+
+function showSelectCardsScreen() {
+  const pokemon = GameState.selectedPokemon;
+  if (!pokemon) return;
+  
+  $('select-cards-pokemon-emoji').textContent = pokemon.emoji;
+  $('select-cards-pokemon-name').textContent = pokemon.name;
+  
+  const typeEl = $('select-cards-pokemon-type');
+  typeEl.textContent = pokemon.type;
+  typeEl.className = 'type type-' + (pokemon.type === '無' ? 'void' : pokemon.type.toLowerCase());
+  typeEl.style.background = ENERGY_TYPES[pokemon.type]?.bg || '#666';
+  typeEl.style.color = (pokemon.type === '雷' || pokemon.type === '鋼') ? '#1a1a2e' : 'white';
+  
+  // 重置選卡
+  selectedCards = [];
+  renderSelectCardsPanel();
+  
+  showScreen('screen-select-cards');
+}
+
+function renderSelectCardsPanel() {
+  const panel = $('select-cards-panel');
+  panel.innerHTML = '';
+  
+  const pokemon = GameState.selectedPokemon;
+  if (!pokemon) return;
+  
+  const moves = pokemon.moves.map(id => MOVES_DB[id]).filter(m => m);
+  
+  moves.forEach((move, index) => {
+    const isSelected = selectedCards.includes(move.id);
+    const canSelect = selectedCards.length < 4 || isSelected;
+    
+    const card = document.createElement('div');
+    card.className = `skill-card ${isSelected ? 'selected' : ''} ${!canSelect && !isSelected ? 'disabled' : ''}`;
+    card.dataset.moveId = move.id;
+    
+    const typeData = ENERGY_TYPES[move.type] || { bg: '#374151', emoji: '?' };
+    
+    let costHtml = '';
+    move.cost.forEach((c, i) => {
+      const ed = ENERGY_TYPES[c] || { bg: '#374151', emoji: c };
+      costHtml += `<div class="energy-sq" style="background: ${ed.bg}; color: ${c === '雷' || c === '鋼' ? '#1a1a2e' : 'white'};">${ed.emoji}</div>`;
+    });
+    
+    // 顯示方向圖示
+    let dirsHtml = '';
+    if (move.directions && move.directions.length > 0) {
+      const dirIcons = {
+        '站立': '⬆️', '倒立': '⬇️', '仰躺': '🔄', '趺臥': '⬛', '橫躺（左）': '↩️', '橫躺（右）': '↪️',
+        '橫躺': '↩️', '趴臥': '⬛'
+      };
+      dirsHtml = move.directions.map(d => dirIcons[d] || '⬜').join(' ');
+    }
+    
+    const dmgDisplay = move.damage > 0 ? move.damage : (move.damage === 0 && move.effect.includes('回復') ? '❤️' : (move.effect.includes('造成') ? '💥' : '—'));
+    
+    card.innerHTML = `
+      <div class="skill-check" style="background: ${isSelected ? 'var(--gold)' : 'transparent'}; border-color: ${isSelected ? 'var(--gold)' : '#555'}; color: ${isSelected ? '#1a1a2e' : 'transparent'};">
+        ${isSelected ? '✓' : ''}
+      </div>
+      <div class="skill-info">
+        <div class="skill-name">
+          ${index + 1}. ${move.name}
+          <span class="skill-type" style="background: ${typeData.bg}; color: ${move.type === '雷' || move.type === '鋼' ? '#1a1a2e' : 'white'};">${move.type}</span>
+        </div>
+        <div class="skill-cost">${costHtml}</div>
+        ${move.effect ? `<div class="skill-effect">效果：${move.effect}</div>` : ''}
+        ${dirsHtml ? `<div class="skill-effect" style="margin-top: 4px;">🎲 方向：${dirsHtml}</div>` : ''}
+      </div>
+      <div class="skill-damage">${dmgDisplay}</div>
+    `;
+    
+    if (canSelect) {
+      card.addEventListener('click', () => toggleSelectCard(move.id));
+    }
+    
+    panel.appendChild(card);
+  });
+}
+
+function toggleSelectCard(moveId) {
+  const idx = selectedCards.indexOf(moveId);
+  if (idx >= 0) {
+    // 取消選擇
+    selectedCards.splice(idx, 1);
+  } else {
+    // 選擇（最多4張）
+    if (selectedCards.length < 4) {
+      selectedCards.push(moveId);
+    } else {
+      showMessage('⚠️ 已經選了 4 張卡，請先取消選擇一張！', 'fail');
+      return;
+    }
+  }
+  renderSelectCardsPanel();
+  $('btn-confirm-select').disabled = selectedCards.length === 0;
+}
+
+$('btn-random-select').addEventListener('click', () => {
+  const pokemon = GameState.selectedPokemon;
+  if (!pokemon) return;
+  
+  const moves = pokemon.moves.map(id => MOVES_DB[id]).filter(m => m);
+  if (moves.length < 4) return;
+  
+  // 隨機選4張（不重複）
+  const shuffled = [...moves].sort(() => Math.random() - 0.5);
+  selectedCards = shuffled.slice(0, 4).map(m => m.id);
+  renderSelectCardsPanel();
+  $('btn-confirm-select').disabled = false;
+});
+
+$('btn-clear-select').addEventListener('click', () => {
+  selectedCards = [];
+  renderSelectCardsPanel();
+  $('btn-confirm-select').disabled = true;
+});
+
+$('btn-confirm-select').addEventListener('click', () => {
+  if (selectedCards.length === 0) return;
+
+  // 將選中的4張卡存入 GameState
+  GameState.selectedMoveIds = [...selectedCards];
+  GameState.lastPlayerMove = null;
+
+  // 進入能量配置畫面並渲染骰子
+  renderEnergyConfig();
+  showScreen('screen-energy');
+});
+
+// 「確認並開始對戰」→ 開始戰鬥
+$('btn-confirm-energy').addEventListener('click', () => {
+  startBattle();
+});
+
+
+
+// ==================== 能量配置畫面（6 面骰，4 單 + 2 雙） ====================
+
+function renderEnergyConfig() {
+  const pokemon = GameState.selectedPokemon;
+  if (!pokemon) return;
+  
+  $('selected-pokemon-display').textContent = pokemon.emoji;
+  $('selected-pokemon-name').textContent = pokemon.name;
+  
+  const typeEl = $('selected-pokemon-type');
+  typeEl.textContent = pokemon.type;
+  typeEl.className = 'type type-' + (pokemon.type === '無' ? 'void' : pokemon.type.toLowerCase());
+  typeEl.style.background = ENERGY_TYPES[pokemon.type]?.bg || '#666';
+  typeEl.style.color = (pokemon.type === '雷' || pokemon.type === '鋼') ? '#1a1a2e' : 'white';
+  
+  $('selected-pokemon-weakness').textContent = pokemon.weakness || '無';
+  $('selected-pokemon-hp').textContent = pokemon.hp;
+  
+  if (GameState.selectedMoveIds && GameState.selectedMoveIds.length > 0) {
+    const selectedMoves = GameState.selectedMoveIds.map(id => MOVES_DB[id]).filter(m => m);
+    $('energy-subtitle').textContent = `為 ${pokemon.name} 配置能量骰子（已選 ${selectedMoves.length} 張招式）`;
+  } else {
+    $('energy-subtitle').textContent = `為 ${pokemon.name} 配置 3 個能量骰（每骰 6 面：前 4 面單屬性，後 2 面雙屬性）`;
+  }
+  
+  // 初始化 6 面骰（如未設定）
+  if (!GameState.playerEnergyDice6 || GameState.playerEnergyDice6.length !== 3) {
+    GameState.playerEnergyDice6 = makeDefaultDice6(pokemon.defaultEnergy);
+  }
+  renderEnergyEditor();
+  renderCharDieEditor();
+}
+
+// 根據預設能量生成 3 骰 × 6 面（4 單 + 2 雙，雙面用同元素）
+function makeDefaultDice6(defaultEnergy) {
+  const base = defaultEnergy[0] || '草';
+  const dice = [];
+  for (let d = 0; d < 3; d++) {
+    const single = defaultEnergy[d] || base;
+    dice.push([single, single, single, single, single + '/' + single, single + '/' + single]);
+  }
+  return dice;
+}
+
+// 選中的要編輯的骰 + 面（-1 = 未選）
+let _selDie = -1;
+let _selFace = -1;
+let _selCharFace = -1;
+let _selIsDuo = false;  // 雙屬性面暫存用
+
+function renderEnergyEditor() {
+  const container = $('energy-dice-6face');
+  if (!container) return;
+  container.innerHTML = '';
+  
+  GameState.playerEnergyDice6.forEach((faces, di) => {
+    const dieWrap = document.createElement('div');
+    dieWrap.className = 'energy-die-wrap' + (di === _selDie ? ' selected-die' : '');
+    dieWrap.style.margin = '8px';
+    
+    const dieLabel = document.createElement('div');
+    dieLabel.className = 'die-label';
+    dieLabel.textContent = '骰 ' + (di + 1);
+    dieWrap.appendChild(dieLabel);
+    
+    const facesRow = document.createElement('div');
+    facesRow.className = 'die-faces';
+    
+    faces.forEach((faceVal, fi) => {
+      const isDuo = faceVal.includes('/');
+      const face = document.createElement('div');
+      face.className = 'die-face-cell' + (di === _selDie && fi === _selFace ? ' selected-face' : '');
+      face.classList.add(isDuo ? 'duo-face' : 'single-face');
+      // 顯示每個屬性的 emoji
+      const parts = faceVal.split('/');
+      face.textContent = parts.map(t => ENERGY_TYPES[t]?.emoji || '?').join(isDuo ? '/' : '');
+      face.title = '骰' + (di + 1) + ' 面' + (fi + 1) + (fi < 4 ? '（單屬性）' : '（雙屬性）') + '：' + faceVal;
+      face.style.background = isDuo
+        ? 'linear-gradient(135deg, ' + (ENERGY_TYPES[parts[0]]?.bg || '#333') + ', ' + (ENERGY_TYPES[parts[1]]?.bg || '#333') + ')'
+        : (ENERGY_TYPES[faceVal]?.bg || '#333');
+      face.addEventListener('click', () => {
+        _selDie = di;
+        _selFace = fi;
+        _selIsDuo = isDuo;
+        renderEnergyEditor();
+        renderEnergyPalette();
+      });
+      facesRow.appendChild(face);
+    });
+    
+    dieWrap.appendChild(facesRow);
+    container.appendChild(dieWrap);
+  });
+}
+
+function renderEnergyPalette() {
+  const palette = $('energy-palette');
+  if (!palette) return;
+  palette.innerHTML = '';
+  
+  if (_selDie < 0 || _selFace < 0) {
+    palette.innerHTML = '<span style="color: var(--muted); font-size: 0.8rem;">點擊某個骰的某個面，再選擇屬性</span>';
+    return;
+  }
+  
+  const types = ['草', '火', '水', '雷', '超', '格', '惡', '鋼', '飛', '無色'];
+  const isDuoFace = _selFace >= 4;
+  
+  // 當前面已選的屬性（雙面最多 2 個）
+  let current = GameState.playerEnergyDice6[_selDie][_selFace];
+  let selectedTypes = current.includes('/') ? current.split('/') : [current];
+  
+  types.forEach(t => {
+    const selected = selectedTypes.includes(t);
+    const b = document.createElement('button');
+    b.className = 'palette-chip type-' + (t === '無' ? 'void' : t.toLowerCase()) + (selected ? ' chosen' : '');
+    b.style.background = ENERGY_TYPES[t]?.bg || '#333';
+    b.style.color = (t === '雷' || t === '鋼' || t === '無色') ? '#1a1a2e' : 'white';
+    b.textContent = ENERGY_TYPES[t]?.emoji || '?';
+    b.title = t;
+    b.addEventListener('click', () => {
+      toggleFaceType(_selDie, _selFace, t, isDuoFace);
+      renderEnergyEditor();
+      renderEnergyPalette();
+    });
+    palette.appendChild(b);
+  });
+}
+
+// ==================== 擲骰動畫 ====================
+function showRollAnimation() {
+  const o = $('roll-overlay');
+  if (o) o.style.display = 'flex';
+}
+function hideRollAnimation() {
+  const o = $('roll-overlay');
+  if (o) o.style.display = 'none';
+}
+
+// 單屬性面：直接設為 t；雙屬性面：維持 2 格，可同元素（例如 火/火）
+function toggleFaceType(di, fi, t, isDuo) {
+  const faces = GameState.playerEnergyDice6[di];
+  if (!isDuo) {
+    faces[fi] = t;
+    return;
+  }
+  let cur = faces[fi].split('/');
+  if (cur.length < 2) cur = [cur[0], cur[0]];  // 正規化為 2 格
+  const has = cur.includes(t);
+  if (has) {
+    const c = cur.filter(x => x === t).length;
+    if (c === 2) cur = [cur[0]];   // 火/火 → 火（退回單格）
+    else cur = [t, t];             // 草/火 + 火 → 火/火
+  } else {
+    cur = [cur[0], t];             // 草/火 + 水 → 草/水
+  }
+  faces[fi] = cur.join('/');
+}
+
+const CHAR_ORIENTATIONS = ['站立', '倒立', '仰躺', '趺臥', '橫躺（左）', '橫躺（右）'];
+const CHAR_ICONS = {
+  '站立': '⬆️', '倒立': '⬇️', '仰躺': '🔄', '趺臥': '⬛',
+  '橫躺（左）': '↩️', '橫躺（右）': '↪️'
+};
+
+function renderCharDieEditor() {
+  const container = $('char-dice-6face');
+  if (!container) return;
+  container.innerHTML = '';
+  
+  playerCharDie6.forEach((ori, i) => {
+    const face = document.createElement('div');
+    face.className = 'char-face' + (i === _selCharFace ? ' selected' : '');
+    face.textContent = (CHAR_ICONS[ori] || '⬜') + ' ' + ori;
+    face.title = '點擊選中，再點下方姿勢替換（面 ' + (i + 1) + '）';
+    face.addEventListener('click', () => {
+      _selCharFace = i;
+      _selDie = -1;
+      _selFace = -1;
+      renderCharDieEditor();
+      renderCharPalette();
+    });
+    container.appendChild(face);
+  });
+  
+  renderCharPalette();
+}
+
+function renderCharPalette() {
+  const palette = $('char-dice-palette');
+  if (!palette) return;
+  palette.innerHTML = '';
+  
+  CHAR_ORIENTATIONS.forEach(ori => {
+    const b = document.createElement('button');
+    b.className = 'palette-chip';
+    b.textContent = (CHAR_ICONS[ori] || '⬜') + ' ' + ori;
+    b.addEventListener('click', () => {
+      if (_selCharFace < 0) {
+        showMessage('⚠️ 請先點擊角色骰的一個面！', 'fail');
+        return;
+      }
+      playerCharDie6[_selCharFace] = ori;
+      renderCharDieEditor();
+    });
+    palette.appendChild(b);
+  });
+}
+
+// 重置 / 隨機按鈕
+$('btn-reset-energy').addEventListener('click', () => {
+  const p = GameState.selectedPokemon;
+  if (!p) return;
+  GameState.playerEnergyDice6 = makeDefaultDice6(p.defaultEnergy);
+  playerCharDie6 = ['站立', '站立', '站立', '站立', '站立', '站立'];
+  _selDie = -1;
+  _selFace = -1;
+  _selCharFace = -1;
+  renderEnergyEditor();
+  renderCharDieEditor();
+  showMessage('已重置為預設配置', 'info');
+});
+
+$('btn-random-energy').addEventListener('click', () => {
+  const types = ['草', '火', '水', '雷', '超', '格', '惡', '鋼', '飛', '無色'];
+  GameState.playerEnergyDice6 = [0, 1, 2].map(() => {
+    const faces = [];
+    for (let f = 0; f < 6; f++) {
+      if (f < 4) faces.push(types[Math.floor(Math.random() * types.length)]);
+      else {
+        const a = types[Math.floor(Math.random() * types.length)];
+        const b = types[Math.floor(Math.random() * types.length)];
+        faces.push(a === b ? a : a + '/' + b);
+      }
+    }
+    return faces;
+  });
+  playerCharDie6 = [0, 1, 2, 3, 4, 5].map(() => CHAR_ORIENTATIONS[Math.floor(Math.random() * CHAR_ORIENTATIONS.length)]);
+  _selDie = -1;
+  _selFace = -1;
+  _selCharFace = -1;
+  renderEnergyEditor();
+  renderCharDieEditor();
+  showMessage('已隨機生成配置', 'info');
+});
+
+// ==================== 戰鬥渲染 ====================
+function startBattle() {
+  const player = GameState.selectedPokemon;
+  if (!player) return;
+
+  // 確認已選擇招式卡
+  if (!GameState.selectedMoveIds || GameState.selectedMoveIds.length === 0) {
+    showMessage('⚠️ 請先選擇 4 張招式卡！', 'fail');
+    showSelectCardsScreen();
+    return;
+  }
+  
+  GameState.playerHP = player.hp;
+  GameState.playerEnergy = [...player.defaultEnergy];
+  GameState.lastPlayerMove = null;
+  GameState.turn = 1;
+  GameState.battleLog = [];
+  GameState.enemySkipTurn = false;
+  GameState.isFirstTurn = true;  // 先手第一回合標記
+  GameState.isPlayerFirst = true;  // 當前玩家是否為先手
+  GameState.isPlayerTurn = true;   // 開戰時輪到玩家
+  
+  // 生成野生敵人（隨機）
+  const wildPool = [
+    { id:'野生咬人蟲', name:'咬人蟲', type:'惡', emoji:'🐛', hp:70, weakness:'格' },
+    { id:'野生呆呆魚', name:'呆呆魚', type:'水', emoji:'🐟', hp:80, weakness:'飛' },
+    { id:'野生波波弟', name:'波波弟', type:'水', emoji:'🦆', hp:75, weakness:'飛' },
+    { id:'野生菊草茶', name:'菊草茶', type:'草', emoji:'🌿', hp:85, weakness:'飛' },
+    { id:'野生胖丁', name:'胖丁', type:'格', emoji:'💪', hp:90, weakness:'飛' },
+    { id:'野生大石魔', name:'大石魔', type:'鋼', emoji:'🪨', hp:100, weakness:'火' },
+    { id:'野生霍夫比', name:'霍夫比', type:'飛', emoji:'🦜', hp:70, weakness:'雷' },
+    { id:'野生迅哥機', name:'迅哥機', type:'格', emoji:'🥊', hp:85, weakness:'飛' },
+    { id:'野生 Kougar', name:' Kougar', type:'惡', emoji:'🐆', hp:95, weakness:'格' },
+    { id:'野生火焰鳥', name:'火焰鳥', type:'火', emoji:'🐦‍🔥', hp:110, weakness:'水' },
+    { id:'野生急凍鳥', name:'急凍鳥', type:'水', emoji:'🐦❄️', hp:105, weakness:'格' },
+    { id:'野生快龍', name:'快龍', type:'飛', emoji:'🐉', hp:120, weakness:'雷' },
+  ];
+  const enemyTemplate = wildPool[Math.floor(Math.random() * wildPool.length)];
+  const hpVariation = Math.floor(Math.random() * 20) - 10;
+  const enemyHP = Math.max(50, enemyTemplate.hp + hpVariation);
+  
+  GameState.enemyPokemonData = {
+    ...enemyTemplate,
+    hp: enemyHP,
+    maxHP: enemyHP,
+  };
+  GameState.enemyHP = enemyHP;
+  GameState.enemyMaxHP = enemyHP;
+  GameState.enemyEnergy = generateEnemyEnergy(enemyTemplate.type);
+  // 初始化 6 面骰並擲出本回合能量
+  if (!GameState.playerEnergyDice6 || GameState.playerEnergyDice6.length !== 3) {
+    GameState.playerEnergyDice6 = makeDefaultDice6(player.defaultEnergy);
+  }
+  rollPlayerEnergyForTurn();
+  
+  showScreen('screen-battle');
+  renderBattle();
+}
+
+// 從 6 面骰擲出本回合能量（擲 count 個骰，每骰隨機 1 面，雙面展開為多個能量）
+function rollPlayerEnergyForTurn() {
+  const count = (GameState.isFirstTurn && GameState.isPlayerFirst) ? 2 : 3;
+  const rolled = [];
+  for (let d = 0; d < count; d++) {
+    const faces = GameState.playerEnergyDice6[d];
+    const face = faces[Math.floor(Math.random() * faces.length)];
+    face.split('/').forEach(t => rolled.push(t));
+  }
+  // 確保玩家本回合至少可以發動一張「非 cooldown」招式：用 usable（避開 lastPlayerMove）判斷可負擔
+  const moves = (GameState.selectedMoveIds || []).map(id => MOVES_DB[id]).filter(m => m);
+  const usable = moves.filter(m => m.id !== GameState.lastPlayerMove);
+  const checkPool = usable.length > 0 ? usable : moves;
+  if (checkPool.length > 0 && !checkPool.some(m => canPayCost(m.cost || [], rolled))) {
+    const pool = usable.length > 0 ? usable : moves;
+    const sorted = pool.slice().sort((a, b) => {
+      const la = (a.cost || []).filter(x => x !== '無色').length;
+      const lb = (b.cost || []).filter(x => x !== '無色').length;
+      return la - lb;
+    });
+    const target = sorted[0];
+    const cost = target.cost || [];
+    const specified = cost.filter(x => x !== '無色');          // 指定類型，例如 ['草','火']
+    const colorlessCount = cost.filter(x => x === '無色').length;
+    const filler = specified[0] || '草';
+    // 無色位（filler）放前面，指定類型放後面：canPayCost 嘅無色 shift 會食前面 filler，指定類型留低一定負擔得起
+    const forced = [];
+    for (let i = 0; i < colorlessCount; i++) forced.push(filler);
+    specified.forEach(t => forced.push(t));
+    while (forced.length < count) forced.push(filler);
+    rolled.length = 0;
+    forced.forEach(t => rolled.push(t));
+  }
+  GameState.playerEnergy = rolled;
+  GameState.lastRollFaces = rolled.slice();
+}
+
+// 突然死亡：超過 30 回合後，每回合雙方自動受到遞增固定傷害，確保對局一定分出勝負
+function applySuddenDeath() {
+  if (GameState.turn > 30) {
+    const sd = GameState.turn - 30;  // 第31回合起每回合 +1，遞增
+    GameState.playerHP = Math.max(0, GameState.playerHP - sd);
+    GameState.enemyHP = Math.max(0, GameState.enemyHP - sd);
+    GameState.suddenDeath = true;
+  }
+}
+
+// 檢查一組能量可否支付招式成本（無色當任意）
+function canPayCost(cost, energies) {
+  const pool = [...energies];
+  for (const c of cost) {
+    if (c === '無色') {
+      if (pool.length === 0) return false;
+      pool.shift();
+    } else {
+      const idx = pool.indexOf(c);
+      if (idx !== -1) pool.splice(idx, 1);
+      else {
+        const ci = pool.indexOf('無色');
+        if (ci !== -1) pool.splice(ci, 1);
+        else return false;
+      }
+    }
+  }
+  return true;
+}
+
+function rollEnemyEnergyForTurn() {
+  const count = (GameState.isFirstTurn && !GameState.isPlayerFirst) ? 2 : 3;
+  GameState.enemyEnergy = generateEnemyEnergy(GameState.enemyPokemonData.type).slice(0, count);
+}
+
+// ==================== 戰鬥渲染修改（顯示使用的招式卡） ====================
+
+function renderBattle() {
+  const player = GameState.playerPokemonData;
+  const enemy = GameState.enemyPokemonData;
+  
+  $('player-pokemon-emoji').textContent = player?.emoji || '❓';
+  $('player-pokemon-name').textContent = player?.name || '未知';
+  setHPBar('player-hp-bar', GameState.playerHP, 120);
+  $('player-hp-text').textContent = `${GameState.playerHP} / 120`;
+  
+  const playerDiceArea = $('player-energy-dice');
+  playerDiceArea.innerHTML = '';
+  GameState.playerEnergy.forEach((type, i) => {
+    const die = document.createElement('div');
+    die.className = `energy-dice ${getEnergyTypeClass(type)}`;
+    die.style.background = ENERGY_TYPES[type]?.bg || '#333';
+    die.style.color = (type === '雷' || type === '鋼' || type === '無色') ? '#1a1a2e' : 'white';
+    die.textContent = ENERGY_TYPES[type]?.emoji || '?';
+    playerDiceArea.appendChild(die);
+  });
+  
+  $('enemy-pokemon-emoji').textContent = enemy?.emoji || '❓';
+  $('enemy-pokemon-name').textContent = enemy?.name || '未知';
+  setHPBar('enemy-hp-bar', GameState.enemyHP, GameState.enemyMaxHP);
+  $('enemy-hp-text').textContent = `${GameState.enemyHP} / ${GameState.enemyMaxHP}`;
+  
+  const enemyDiceArea = $('enemy-energy-dice');
+  enemyDiceArea.innerHTML = '';
+  GameState.enemyEnergy.forEach((type, i) => {
+    const die = document.createElement('div');
+    die.className = `energy-dice ${getEnergyTypeClass(type)}`;
+    die.style.background = ENERGY_TYPES[type]?.bg || '#333';
+    die.style.color = (type === '雷' || type === '鋼' || type === '無色') ? '#1a1a2e' : 'white';
+    die.textContent = ENERGY_TYPES[type]?.emoji || '?';
+    enemyDiceArea.appendChild(die);
+  });
+  
+  $('turn-number').textContent = GameState.turn;
+  $('player-energy-count').textContent = GameState.playerEnergy.length;
+  
+  // 顯示先手信息
+  if (GameState.isFirstTurn && GameState.isPlayerFirst) {
+    $('turn-indicator').textContent = '🟢 你的回合（先手：僅擲 2 個能量骰）';
+    $('turn-indicator').style.color = 'var(--gold)';
+  } else if (GameState.enemySkipTurn) {
+    $('turn-indicator').textContent = '⏭️ 敵人被時間停止！';
+    $('turn-indicator').style.color = 'var(--psychic)';
+  } else if (GameState.isPlayerTurn) {
+    $('turn-indicator').textContent = '🟢 你的回合' + (GameState.suddenDeath ? ' ☠️ 突然死亡！' : '');
+    $('turn-indicator').style.color = GameState.suddenDeath ? 'var(--accent)' : 'var(--gold)';
+  } else {
+    $('turn-indicator').textContent = '🔴 敵人回合';
+    $('turn-indicator').style.color = 'var(--accent)';
+  }
+  
+  renderSkillsPanel();
+  
+  if (GameState.isPlayerTurn && !GameState.enemySkipTurn) {
+    const rollCount = (GameState.isFirstTurn && GameState.isPlayerFirst) ? 2 : 3;
+    showMessage(`選擇一個招式，然後點擊「投擲 ${rollCount} 個能量骰子」發動攻擊！`, 'info');
+  } else if (GameState.enemySkipTurn) {
+    showMessage('⏭️ 敵人被時間停止！該回合跳過！', 'info');
+    setTimeout(() => {
+      GameState.enemySkipTurn = false;
+      GameState.isPlayerTurn = true;
+      GameState.turn++;
+      GameState.isFirstTurn = false;
+      renderBattle();
+    }, 1500);
+    return;
+  } else {
+    showMessage('敵人回合中...', 'info');
+  }
+}
+
+// ==================== 技能面板修改（只顯示已選的4張卡） ====================
+
+function renderSkillsPanel() {
+  const panel = $('skills-panel');
+  const pokemon = GameState.selectedPokemon;
+  
+  if (!pokemon) {
+    panel.innerHTML = '<p style="color: var(--muted); text-align: center;">載入中...</p>';
+    return;
+  }
+  
+  panel.innerHTML = '';
+  
+  // 只顯示已選的4張卡
+  const availableMoves = (GameState.selectedMoveIds || []).map(id => MOVES_DB[id]).filter(m => m);
+  
+  if (availableMoves.length === 0) {
+    panel.innerHTML = '<p style="color: var(--muted); text-align: center;">請先返回選擇招式卡！</p>';
+    return;
+  }
+  
+  availableMoves.forEach((move) => {
+    const isDisabled = move.id === GameState.lastPlayerMove && GameState.isPlayerTurn;
+    
+    // 檢查能量是否足夠（考慮無色能量）
+    const cost = move.cost || [];
+    const canAfford = canPayCost(cost, GameState.playerEnergy);
+    
+    const card = document.createElement('div');
+    card.className = `skill-card ${isDisabled || !canAfford ? 'disabled' : ''}`;
+    
+    const typeData = ENERGY_TYPES[move.type] || { bg: '#374151', emoji: '?' };
+    
+    let costHtml = '';
+    move.cost.forEach((c, i) => {
+      const ed = ENERGY_TYPES[c] || { bg: '#374151', emoji: c };
+      costHtml += `<div class="energy-sq" style="background: ${ed.bg}; color: ${c === '雷' || c === '鋼' || c === '無色' ? '#1a1a2e' : 'white'};">${ed.emoji}</div>`;
+    });
+    
+    // 顯示方向圖示
+    let dirsHtml = '';
+    if (move.directions && move.directions.length > 0) {
+      const dirIcons = {
+        '站立': '⬆️', '倒立': '⬇️', '仰躺': '🔄', '趺臥': '⬛', '橫躺（左）': '↩️', '橫躺（右）': '↪️',
+        '橫躺': '↩️', '趺臥': '⬛', '趺臥': '⬛'
+      };
+      dirsHtml = move.directions.map(d => dirIcons[d] || '⬜').join(' ');
+    }
+    
+    const dmgDisplay = move.damage > 0 ? move.damage : (move.damage === 0 && move.effect.includes('回復') ? '❤️' : (move.effect.includes('造成') ? '💥' : '—'));
+    
+    card.innerHTML = `
+      <div class="skill-check">${move.id === GameState.lastPlayerMove ? '✓' : ''}</div>
+      <div class="skill-info">
+        <div class="skill-name">
+          ${move.name}
+          <span class="skill-type" style="background: ${typeData.bg}; color: ${move.type === '雷' || move.type === '鋼' || move.type === '無色' ? '#1a1a2e' : 'white'};">${move.type}</span>
+        </div>
+        <div class="skill-cost">${costHtml}</div>
+        ${move.effect ? `<div class="skill-effect">效果：${move.effect}</div>` : ''}
+        ${dirsHtml ? `<div class="skill-effect" style="margin-top: 4px;">🎲 方向：${dirsHtml}</div>` : ''}
+      </div>
+      <div class="skill-damage">${dmgDisplay}</div>
+    `;
+    
+    if (!isDisabled && canAfford && GameState.isPlayerTurn && !GameState.enemySkipTurn) {
+      card.addEventListener('click', () => selectSkill(move.id));
+    }
+    
+    panel.appendChild(card);
+  });
+}
+
+// ==================== 選擇招式（加入方向匹配邏輯） ====================
+
+function selectSkill(moveId) {
+  if (!GameState.isPlayerTurn || GameState.enemySkipTurn) return;
+  
+  const move = MOVES_DB[moveId];
+  if (!move) return;
+  
+  if (moveId === GameState.lastPlayerMove) {
+    showMessage('⚠️ 同一回合不能使用上次使用的招式！', 'fail');
+    return;
+  }
+  
+  const cost = move.cost || [];
+  const canAfford = canPayCost(cost, GameState.playerEnergy);
+  
+  if (!canAfford) {
+    showMessage('⚠️ 能量不足，無法發動該招式！', 'fail');
+    return;
+  }
+  
+  GameState.selectedMove = moveId;
+  const rollCount = (GameState.isFirstTurn && GameState.isPlayerFirst) ? 2 : 3;
+  $('btn-roll-dice').textContent = `🎲 投擲並發動「${move.name}」（擲 ${rollCount} 個）`;
+  $('btn-roll-dice').disabled = false;
+  showMessage(`已選擇「${move.name}」，現在點擊按鈕投擲能量骰子！`, 'info');
+}
+
+// ==================== 投擲與執行（加入先手減一骰、方向匹配） ====================
+
+$('btn-roll-dice').addEventListener('click', () => {
+  if (!GameState.isPlayerTurn || GameState.enemySkipTurn) return;
+  
+  const moveId = GameState.selectedMove;
+  if (!moveId) {
+    showMessage('⚠️ 請先選擇一個招式！', 'fail');
+    return;
+  }
+  
+  executePlayerTurn(moveId);
+});
+
+function executePlayerTurn(moveId) {
+  GameState.isPlayerTurn = false;
+  GameState.lastPlayerMove = moveId;
+  
+  const move = MOVES_DB[moveId];
+  if (!move) return;
+  
+  // 消耗能量（考慮無色能量）
+  const cost = move.cost || [];
+  for (const c of cost) {
+    if (c === '無色') {
+      // 無色能量可以匹配任何類型，消耗一個隨便什麼類型的能量
+      if (GameState.playerEnergy.length > 0) {
+        GameState.playerEnergy.pop();
+      }
+      continue;
+    }
+    const idx = GameState.playerEnergy.indexOf(c);
+    if (idx !== -1) {
+      GameState.playerEnergy.splice(idx, 1);
+    }
+  }
+  
+  showRollAnimation();
+  
+  setTimeout(() => {
+    hideRollAnimation();
+    
+    // 模擬擲骰結果（能量檢定）
+    const energyRollSuccess = Math.random() < 0.7;
+    
+    let totalDamage = move.damage;
+    let messageParts = [];
+    
+    if (!energyRollSuccess) {
+      showMessage(`🎲 擲骰失敗！「${move.name}」未能發動。`, 'fail');
+      renderBattle();
+      setTimeout(() => executeEnemyTurn(), 1500);
+      return;
+    }
+    
+    messageParts.push(`🎲 擲骰成功！「${move.name}」發動！`);
+    
+    // 角色骰方向檢定（根據招式卡指定的方向列表）
+    let directionMatch = false;
+    let rolledDirection = '站立';
+    if (move.directions && move.directions.length > 0) {
+      // 擲玩家配置的角色骰（6 面）
+      rolledDirection = playerCharDie6[Math.floor(Math.random() * playerCharDie6.length)];
+      
+      // 檢查是否在卡指定的方向列表中
+      directionMatch = move.directions.includes(rolledDirection);
+      
+      if (directionMatch) {
+        messageParts.push(`🎲 角色骰方向匹配！（擲出 ${rolledDirection}）`);
+      } else {
+        messageParts.push(`🎲 角色骰方向未匹配！（擲出 ${rolledDirection}，需要 ${move.directions.join(' 或 ')}）`);
+      }
+    } else {
+      // 沒有指定方向，默認為匹配（某些卡沒有方向要求）
+      directionMatch = true;
+    }
+    
+    // 執行角色骰效果（如果方向匹配）
+    const effect = move.effect;
+    if (directionMatch && effect) {
+      
+      // 解析效果文本並執行
+      if (effect.includes('20 傷害追加') || effect.includes('+20')) {
+        totalDamage += 20;
+        messageParts.push(`➕ 額外 +20 傷害！`);
+      }
+      if (effect.includes('30 傷害追加') || effect.includes('+30')) {
+        totalDamage += 30;
+        messageParts.push(`➕ 額外 +30 傷害！`);
+      }
+      if (effect.includes('40 傷害追加') || effect.includes('+40')) {
+        totalDamage += 40;
+        messageParts.push(`➕ 額外 +40 傷害！`);
+      }
+      if (effect.includes('50 傷害追加') || effect.includes('+50')) {
+        totalDamage += 50;
+        messageParts.push(`➕ 額外 +50 傷害！`);
+      }
+      if (effect.includes('60 傷害追加') || effect.includes('+60')) {
+        totalDamage += 60;
+        messageParts.push(`➕ 額外 +60 傷害！`);
+      }
+      if (effect.includes('80 傷害追加') || effect.includes('+80')) {
+        totalDamage += 80;
+        messageParts.push(`➕ 額外 +80 傷害！`);
+      }
+      if (effect.includes('回復') && effect.includes('HP')) {
+        const match = effect.match(/回復\s*(\d+)\s*HP/);
+        const heal = match ? parseInt(match[1]) : 30;
+        GameState.playerHP = Math.min(120, GameState.playerHP + heal);
+        messageParts.push(`✨ 回復 ${heal} HP！`);
+      }
+      if (effect.includes('對手能量') && effect.includes('減少')) {
+        if (GameState.enemyEnergy.length > 0) {
+          GameState.enemyEnergy.pop();
+          messageParts.push(`⚡ 對手能量骰 -1！`);
+        }
+      }
+      if (effect.includes('自己能量') && effect.includes('增加')) {
+        const match = effect.match(/自己能量\s*[+卩]\s*(\d+)/);
+        const count = match ? parseInt(match[1]) : 1;
+        for (let i = 0; i < count; i++) {
+          GameState.playerEnergy.push(move.type || '草');
+        }
+        messageParts.push(`⚡ 自己能量骰 +${count}！`);
+      }
+      if (effect.includes('自己能量') && effect.includes('減少')) {
+        if (GameState.playerEnergy.length > 0) {
+          GameState.playerEnergy.pop();
+          messageParts.push(`⚡ 自己能量骰 -1！`);
+        }
+      }
+      if (effect.includes('跳過敵人下一回合')) {
+        GameState.enemySkipTurn = true;
+        messageParts.push(`⏭️ 敵人下回合被跳過！`);
+      }
+      if (effect.includes('忽略弱點')) {
+        messageParts.push(`🛡️ 忽略弱點效果！`);
+      }
+      if (effect.includes('也受') && effect.match(/受\s*(\d+)\s*傷害/)) {
+        const dmg = parseInt(effect.match(/受\s*(\d+)\s*傷害/)[1]);
+        GameState.playerHP = Math.max(0, GameState.playerHP - dmg);
+        messageParts.push(`⚠️ 這隻寶可夢也受 ${dmg} 傷害！`);
+      }
+      if (effect.includes('自己受到嘅傷害') && effect.match(/受到嘅傷害\s*[-減]\s*(\d+)/)) {
+        const reduction = parseInt(effect.match(/受到嘅傷害\s*[-減]\s*(\d+)/)[1]);
+        GameState.nextTurnDamageReduction = reduction;
+        messageParts.push(`🛡️ 下回合受傷 -${reduction}！`);
+      }
+      if (effect.includes('HP ≤') && effect.match(/HP\s*≤\s*(\d+)/)) {
+        const threshold = parseInt(effect.match(/HP\s*≤\s*(\d+)/)[1]);
+        if (GameState.enemyHP <= threshold) {
+          const extra = parseInt(effect.match(/追加\s*(\d+)/)[1]);
+          totalDamage += extra;
+          messageParts.push(`🎯 對手 HP ≤ ${threshold}，額外 +${extra}！`);
+        }
+      }
+      if (effect.includes('上一回合') && effect.includes('成功')) {
+        // 特殊效果：上一回合特定招式成功的話
+        messageParts.push(`ℹ️ 上一回合效果檢查（需追蹤狀態）`);
+      }
+      if (effect.includes('對手都擲角色骰子')) {
+        // 對手也擲角色骰子的效果
+        messageParts.push(`🎲 對手角色骰也參與檢定`);
+      }
+      if (effect.includes('選對手一個招式')) {
+        // 選擇對手招式禁用
+        messageParts.push(`🎯 選擇對手招式禁用（需追蹤）`);
+      }
+    }
+    
+    // 清除先手標記
+    GameState.isFirstTurn = false;
+    
+    // 弱點判斷
+    const enemy = GameState.enemyPokemonData;
+    if (move.type && enemy?.weakness === move.type && !effect?.includes('忽略弱點')) {
+      totalDamage += 20;
+      messageParts.push(`💥 弱點命中！+20 傷害！`);
+    }
+    
+    GameState.enemyHP = Math.max(0, GameState.enemyHP - totalDamage);
+    
+    if (totalDamage > 0) {
+      messageParts.unshift(`🎲 擲骰成功！「${move.name}」發動！`);
+      messageParts.push(`造成 ${totalDamage} 點傷害！`);
+    } else {
+      messageParts.unshift(`🎲 擲骰成功！「${move.name}」發動！`);
+      messageParts.push(`（治療狀態）`);
+    }
+    
+    showMessage(messageParts.join('\n'), 'success');
+    renderBattle();
+    
+    if (GameState.enemyHP <= 0) {
+      setTimeout(() => endBattle(true), 1200);
+      return;
+    }
+    
+    setTimeout(() => executeEnemyTurn(), 1500);
+    
+  }, 600);
+}
+
+// ==================== 敵人回合（加入方向匹配） ====================
+
+function executeEnemyTurn() {
+  if (GameState.enemyHP <= 0) return;
+  
+  if (GameState.enemySkipTurn) {
+    GameState.enemySkipTurn = false;
+    GameState.isPlayerTurn = true;
+    GameState.isFirstTurn = false;
+    GameState.turn++;
+    rollPlayerEnergyForTurn();
+    renderBattle();
+    return;
+  }
+  
+  const enemy = GameState.enemyPokemonData;
+  const player = GameState.playerPokemonData;
+  
+  // 敵人 AI：從已選的4張卡中選擇
+  const availableMoves = (GameState.selectedMoveIds || []).map(id => MOVES_DB[id]).filter(m => m);
+  if (availableMoves.length === 0) {
+    GameState.playerHP = Math.max(0, GameState.playerHP - 10);
+    showMessage(`敵人直接攻擊！造成 10 點傷害！`, 'fail');
+    renderBattle();
+    checkPlayerFaint();
+    return;
+  }
+  
+  // 加權選擇（偏向高傷害）
+  const weights = availableMoves.map(m => {
+    if (m.damage === 0 && m.effect.includes('回復')) return 0.15;
+    if (m.damage === 0 && m.effect.includes('跳過')) return 0.1;
+    return 0.3 + (m.damage / 100);
+  });
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  let rand = Math.random() * totalWeight;
+  let selectedMove = availableMoves[0];
+  for (let i = 0; i < availableMoves.length; i++) {
+    rand -= weights[i];
+    if (rand <= 0) { selectedMove = availableMoves[i]; break; }
+  }
+  
+  const move = selectedMove;
+  
+  showRollAnimation();
+  
+  setTimeout(() => {
+    hideRollAnimation();
+    
+    // 敵人每回合重新擲能量骰（避免能量被 pop 淨空後炸）
+    rollEnemyEnergyForTurn();
+    
+    // 模擬擲骰結果
+    // 敵人能量骰投擲（模擬 3 個能量骰）
+    const enemyRolledFaces = [];
+    const enemyEnergyTypes = (GameState.enemyEnergy && GameState.enemyEnergy.length > 0) ? GameState.enemyEnergy : ['草', '草', '草'];
+    for (let i = 0; i < 3; i++) {
+      const t = enemyEnergyTypes[i % enemyEnergyTypes.length];
+      enemyRolledFaces.push(t && t.split ? t : '草');
+    }
+    
+    // 敵人角色骰投擲
+    const enemyCharRoll = enemyCharDie6[Math.floor(Math.random() * enemyCharDie6.length)];
+    
+    // 收集所有能量類型
+    const enemyAllTypes = [];
+    enemyRolledFaces.forEach(faceStr => {
+      const types = faceStr.split('/');
+      types.forEach(t => enemyAllTypes.push(t));
+    });
+    
+    // 檢查是否能支付成本
+    const cost = move.cost || [];
+    let canPayCost = true;
+    const remainingTypes = [...enemyAllTypes];
+    
+    for (const neededType of cost) {
+      if (neededType === '無色') {
+        if (remainingTypes.length > 0) remainingTypes.shift();
+        else { canPayCost = false; break; }
+      } else {
+        const idx = remainingTypes.indexOf(neededType);
+        if (idx !== -1) remainingTypes.splice(idx, 1);
+        else {
+          const ci = remainingTypes.indexOf('無色');
+          if (ci !== -1) remainingTypes.splice(ci, 1);
+          else { canPayCost = false; break; }
+        }
+      }
+    }
+    
+    const energyRollSuccess = canPayCost;
+    
+    // 角色骰方向檢定
+    let directionRollSuccess = false;
+    if (move.directions && move.directions.length > 0) {
+      directionRollSuccess = move.directions.includes(enemyCharRoll);
+    } else {
+      directionRollSuccess = true;
+    }
+    
+    if (!energyRollSuccess) {
+      showMessage(`敵人擲骰失敗，「${move.name}」未能發動。`, 'info');
+      renderBattle();
+      setTimeout(() => {
+        GameState.isPlayerTurn = true;
+        GameState.isFirstTurn = false;
+        GameState.turn++;
+        applySuddenDeath();
+        rollPlayerEnergyForTurn();
+        renderBattle();
+      }, 1000);
+      return;
+    }
+    
+    let damage = move.damage;
+    let messageParts = [];
+    
+    if (directionRollSuccess && move.effect) {
+      messageParts.push(`🎲  enemy 角色骰方向匹配！（${enemyCharRoll}）`);
+      
+      const effect = move.effect;
+      if (effect.includes('20 傷害追加') || effect.includes('+20')) damage += 20;
+      if (effect.includes('30 傷害追加') || effect.includes('+30')) damage += 30;
+      if (effect.includes('40 傷害追加') || effect.includes('+40')) damage += 40;
+      if (effect.includes('50 傷害追加') || effect.includes('+50')) damage += 50;
+      if (effect.includes('對手能量') && effect.includes('減少')) {
+        GameState.nextTurnEnemyEnergyReduction = true;
+      }
+      if (effect.includes('自己能量') && effect.includes('增加')) {
+        GameState.nextTurnPlayerEnergyAdd = (GameState.nextTurnPlayerEnergyAdd || 0) + 1;
+      }
+    } else if (move.effect) {
+      messageParts.push(`🎲  enemy 角色骰方向未匹配（${enemyCharRoll}）`);
+    }
+    
+    // 玩家弱點
+    if (move.type && player && player.weakness === move.type && !move.effect?.includes('忽略弱點')) {
+      damage += 20;
+      messageParts.push(`💥 弱點命中！+20`);
+    }
+    
+    GameState.playerHP = Math.max(0, GameState.playerHP - damage);
+    
+    messageParts.unshift(`敵人發動「${move.name}」！`);
+    if (damage > 0) messageParts.push(`造成 ${damage} 點傷害！`);
+    
+    showMessage(messageParts.join('\n'), 'fail');
+    renderBattle();
+    
+    checkPlayerFaint();
+  }, 700);
+}
+
+// ==================== 其他輔助函數 ====================
+
+function generateEnemyEnergy(type) {
+  const energy = [];
+  const types = Object.keys(ENERGY_TYPES);
+  for (let i = 0; i < 3; i++) {
+    if (Math.random() < 0.6) {
+      energy.push(type);
+    } else {
+      energy.push(types[Math.floor(Math.random() * types.length)]);
+    }
+  }
+  return energy;
+}
+
+function checkPlayerFaint() {
+  if (GameState.playerHP <= 0) {
+    setTimeout(() => endBattle(false), 1200);
+  } else {
+    setTimeout(() => {
+      GameState.nextTurnDamageReduction = 0;
+      GameState.nextTurnEnemyEnergyReduction = false;
+      GameState.nextTurnPlayerEnergyAdd = 0;
+      
+      GameState.isPlayerTurn = true;
+      GameState.isFirstTurn = false;
+      GameState.turn++;
+      applySuddenDeath();
+      rollPlayerEnergyForTurn();
+      renderBattle();
+    }, 1000);
+  }
+}
+
+function endBattle(playerWon) {
+  showScreen('screen-result');
+  
+  if (playerWon) {
+    $('result-title').textContent = '🏆 勝利！';
+    $('result-message').textContent = `你擊敗了野生寶可夢！`;
+    $('result-stats').textContent = `共經歷 ${GameState.turn} 回合對戰。`;
+  } else {
+    $('result-title').textContent = '💀 失敗！';
+    $('result-message').textContent = '你的寶可夢暈了... 請重新挑戰！';
+    $('result-stats').textContent = `對戰了 ${GameState.turn} 回合後失敗。`;
+  }
+}
+
+// ==================== 初始化修改 ====================
+
+function initTestScreen() {
+  // 填寫測試工具的角色 / 招式下拉
+  const ps = $('test-pokemon-select');
+  if (ps) {
+    ps.innerHTML = '';
+    POKEMON.forEach(p => {
+      const o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = p.name;
+      ps.appendChild(o);
+    });
+  }
+  const ms = $('test-move-select');
+  if (ms) {
+    ms.innerHTML = '';
+    Object.keys(MOVES_DB).forEach(id => {
+      const m = MOVES_DB[id];
+      const o = document.createElement('option');
+      o.value = id;
+      o.textContent = m.name + ' (' + m.type + ')';
+      ms.appendChild(o);
+    });
+  }
+  // 測試用能量骰槽（預設 3 草）
+  const slots = $('test-energy-slots');
+  if (slots) {
+    slots.innerHTML = '';
+    ['草', '草', '草'].forEach(t => {
+      const d = document.createElement('div');
+      d.className = 'energy-die';
+      d.style.background = ENERGY_TYPES[t]?.bg || '#333';
+      d.textContent = ENERGY_TYPES[t]?.emoji || '?';
+      slots.appendChild(d);
+    });
+  }
+  // 測試按鈕
+  const btnRoll = $('btn-test-roll');
+  if (btnRoll && !btnRoll._ev) {
+    btnRoll.addEventListener('click', () => {
+      const pid = ps ? ps.value : null;
+      const mid = ms ? ms.value : null;
+      const pokemon = POKEMON.find(p => p.id === pid);
+      const move = MOVES_DB[mid];
+      if (!pokemon || !move) { showMessage('請選擇角色與招式', 'fail'); return; }
+      const rate = parseFloat($('test-success-rate') ? $('test-success-rate').value : '0.7');
+      const res = simulateRoll(pokemon, move, rate);
+      const box = $('test-result');
+      const content = $('test-result-content');
+      if (box) box.style.display = 'block';
+      if (content) content.textContent = res;
+    });
+  }
+  const btnBulk = $('btn-test-bulk');
+  if (btnBulk && !btnBulk._ev) {
+    btnBulk.addEventListener('click', () => {
+      const pid = ps ? ps.value : null;
+      const mid = ms ? ms.value : null;
+      const pokemon = POKEMON.find(p => p.id === pid);
+      const move = MOVES_DB[mid];
+      if (!pokemon || !move) { showMessage('請選擇角色與招式', 'fail'); return; }
+      const rate = parseFloat($('test-success-rate') ? $('test-success-rate').value : '0.7');
+      let success = 0;
+      const N = 100;
+      for (let i = 0; i < N; i++) { if (Math.random() < rate) success++; }
+      const box = $('test-result');
+      const content = $('test-result-content');
+      if (box) box.style.display = 'block';
+      if (content) content.textContent = `批量測試 ${N} 次：成功 ${success} 次（${Math.round(success / N * 100)}%）`;
+    });
+  }
+  const backBtn = $('btn-back-to-battle');
+  if (backBtn && !backBtn._ev) {
+    backBtn.addEventListener('click', () => { showScreen('screen-select'); });
+  }
+}
+
+function simulateRoll(pokemon, move, rate) {
+  const cost = move.cost || [];
+  const faces = (GameState.playerEnergy || pokemon.defaultEnergy).slice();
+  // 簡單模擬：每個成本骰按機率成功
+  let ok = true;
+  for (const c of cost) {
+    if (c === '無色') continue;
+    if (Math.random() >= rate) { ok = false; break; }
+  }
+  return `招式：${move.name}\n成本：${cost.join(' / ') || '無'}\n成功機率設定：${Math.round(rate*100)}%\n本次結果：${ok ? '✅ 成功發動' : '❌ 失敗'}`;
+}
+
+function init() {
+  renderPokemonSelect();
+  initTestScreen();
+}
+
+// 替換原有的 init 調用
+init();
+
+</script>
+</body>
+</html>

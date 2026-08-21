@@ -10,11 +10,11 @@
       "use": "@vercel/static"
     },
     {
-      "src": "characters/**",
+      "src": "game_data.json",
       "use": "@vercel/static"
     },
     {
-      "src": "game_data.json",
+      "src": "characters/**",
       "use": "@vercel/static"
     }
   ],
@@ -24,11 +24,16 @@
       "dest": "/server.js"
     },
     {
+      "src": "/characters/(.*)",
+      "dest": "/characters/$1"
+    },
+    {
+      "src": "/game_data.json",
+      "dest": "/game_data.json"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }
